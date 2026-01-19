@@ -61,7 +61,7 @@ exports.registerUser = async (req, res) => {
 
     // ===== CEK JARAK 500M =====
     const [locations] = await db.query(
-      "SELECT id, lat, lng FROM users WHERE lat IS NOT NULL AND lng IS NOT NULL"
+      "SELECT id, lat, lng FROM users WHERE lat IS NOT NULL AND lng IS NOT NULL",
     );
 
     for (let loc of locations) {
@@ -96,7 +96,7 @@ exports.registerUser = async (req, res) => {
         role,
         lat,
         lng,
-      ]
+      ],
     );
 
     res.json({ message: "User berhasil didaftarkan oleh admin" });
@@ -111,19 +111,31 @@ exports.registerUser = async (req, res) => {
 // ======================
 exports.updateUser = async (req, res) => {
   try {
-    const { nama, email, role, kemitraan, lat, lng } = req.body;
+    const {
+      nama,
+      email,
+      alamat,
+      kelurahan,
+      kecamatan,
+      kota,
+      provinsi,
+      kode_pos,
+      role,
+      kemitraan,
+      lat,
+      lng,
+    } = req.body;
+
     const { id } = req.params;
 
-    // ===== CEK JARAK 500M (KECUALI DIRI SENDIRI) =====
-    if (lat && lng) {
+    if (lat != null && lng != null) {
       const [locations] = await db.query(
         "SELECT id, lat, lng FROM users WHERE lat IS NOT NULL AND lng IS NOT NULL AND id != ?",
-        [id]
+        [id],
       );
 
       for (let loc of locations) {
         const distance = getDistance(lat, lng, loc.lat, loc.lng);
-
         if (distance < 500) {
           return res.status(400).json({
             message:
@@ -134,10 +146,35 @@ exports.updateUser = async (req, res) => {
     }
 
     await db.query(
-      `UPDATE users 
-       SET nama=?, email=?, role=?, kemitraan=?, lat=?, lng=? 
-       WHERE id=?`,
-      [nama, email, role, kemitraan, lat, lng, id]
+      `UPDATE users SET
+        nama=?,
+        email=?,
+        alamat=?,
+        kelurahan=?,
+        kecamatan=?,
+        kota=?,
+        provinsi=?,
+        kode_pos=?,
+        role=?,
+        kemitraan=?,
+        lat=?,
+        lng=?
+      WHERE id=?`,
+      [
+        nama,
+        email,
+        alamat || null,
+        kelurahan || null,
+        kecamatan || null,
+        kota || null,
+        provinsi || null,
+        kode_pos || null,
+        role,
+        kemitraan,
+        lat,
+        lng,
+        id,
+      ],
     );
 
     res.json({ message: "User updated" });
@@ -169,7 +206,7 @@ exports.deleteUser = async (req, res) => {
 exports.getUsers = async (req, res) => {
   try {
     const [users] = await db.query(
-      "SELECT id, nama, email, alamat, kemitraan, role, lat, lng FROM users"
+      "SELECT id, nama, email, alamat, kemitraan, role, lat, lng FROM users",
     );
 
     res.json(users);

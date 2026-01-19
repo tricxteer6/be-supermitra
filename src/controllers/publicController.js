@@ -2,7 +2,7 @@ const db = require("../config/db");
 
 exports.getPublicUsers = async (req, res) => {
   try {
-    const [rows] = await db.query(`
+    const [users] = await db.query(`
       SELECT 
         id,
         nama,
@@ -12,14 +12,15 @@ exports.getPublicUsers = async (req, res) => {
         lat,
         lng
       FROM users
-      WHERE role != 'admin'
+      WHERE 
+        role != 'admin'
         AND lat IS NOT NULL
         AND lng IS NOT NULL
     `);
 
-    res.json(rows);
+    res.json(users);
   } catch (err) {
-    console.error(err);
+    console.error("PUBLIC USERS ERROR:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
