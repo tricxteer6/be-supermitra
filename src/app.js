@@ -1,10 +1,12 @@
 require("dotenv").config();
 const express = require("express");
+const path = require("path");
 const cors = require("cors");
 
 const authRoutes = require("./routes/auth");
 const adminRoutes = require("./routes/admin");
 const courseRoutes = require("./routes/course");
+const aksesRoutes = require("./routes/akses");
 const publicRoutes = require("./routes/public");
 const userRoutes = require("./routes/user");
 
@@ -15,9 +17,13 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/course", courseRoutes);
+app.use("/api/akses", aksesRoutes);
 app.use("/api/public", publicRoutes);
 app.use("/api/user", userRoutes);
-app.use("/public", express.static("public"));
+
+// Serve uploaded files from backend/public (absolute path so it works regardless of cwd)
+const publicDir = path.join(__dirname, "..", "public");
+app.use("/public", express.static(publicDir));
 
 app.listen(process.env.PORT, () => {
   console.log("Server running on port", process.env.PORT);

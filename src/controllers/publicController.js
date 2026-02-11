@@ -10,7 +10,8 @@ exports.getPublicUsers = async (req, res) => {
         provinsi,
         kemitraan,
         lat,
-        lng
+        lng,
+        profile_picture
       FROM users
       WHERE 
         role != 'admin'
@@ -21,6 +22,50 @@ exports.getPublicUsers = async (req, res) => {
     res.json(users);
   } catch (err) {
     console.error("PUBLIC USERS ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getPublicUserById = async (req, res) => {
+  try {
+    const id = req.params.id;
+    const [rows] = await db.query(
+      `SELECT 
+        id,
+        nama,
+        alamat,
+        kelurahan,
+        kecamatan,
+        kota,
+        provinsi,
+        kode_pos,
+        kemitraan,
+        lat,
+        lng,
+        profile_picture,
+        photos
+       FROM users
+       WHERE id = ? AND role != 'admin'`,
+      [id],
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "Mitra tidak ditemukan" });
+    }
+
+    const mitra = rows[0];
+    if (mitra.photos && typeof mitra.photos === "string") {
+      try {
+        mitra.photos = JSON.parse(mitra.photos);
+      } catch {
+        mitra.photos = [];
+      }
+    }
+    if (!Array.isArray(mitra.photos)) mitra.photos = [];
+
+    res.json(mitra);
+  } catch (err) {
+    console.error("PUBLIC USER BY ID ERROR:", err);
     res.status(500).json({ message: "Server error" });
   }
 };

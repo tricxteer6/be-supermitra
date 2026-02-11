@@ -20,7 +20,7 @@ exports.login = async (req, res) => {
     return res.status(400).json({ message: "Wrong password" });
 
   const token = jwt.sign(
-    { id: user.id, role: user.role },
+    { id: user.id, role: user.role, kemitraan: user.kemitraan || null },
     process.env.JWT_SECRET,
     { expiresIn: "1d" }
   );
@@ -30,7 +30,9 @@ exports.login = async (req, res) => {
     user: {
       id: user.id,
       nama: user.nama,
-      role: user.role
+      role: user.role,
+      kemitraan: user.kemitraan || null,
+      profile_picture: user.profile_picture || null
     }
   });
 };

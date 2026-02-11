@@ -19,7 +19,9 @@ exports.getMe = async (req, res) => {
         kemitraan,
         role,
         lat,
-        lng
+        lng,
+        profile_picture,
+        photos
        FROM users
        WHERE id = ?`,
       [userId],
@@ -29,7 +31,17 @@ exports.getMe = async (req, res) => {
       return res.status(404).json({ message: "User tidak ditemukan" });
     }
 
-    res.json(rows[0]);
+    const user = rows[0];
+    if (user.photos && typeof user.photos === "string") {
+      try {
+        user.photos = JSON.parse(user.photos);
+      } catch {
+        user.photos = [];
+      }
+    }
+    if (!Array.isArray(user.photos)) user.photos = [];
+
+    res.json(user);
   } catch (err) {
     console.error("GET ME ERROR:", err);
     res.status(500).json({ message: "Server error" });
@@ -55,7 +67,9 @@ exports.updateMe = async (req, res) => {
         kemitraan,
         role,
         lat,
-        lng
+        lng,
+        profile_picture,
+        photos
        FROM users
        WHERE id = ?`,
       [userId],
@@ -66,6 +80,12 @@ exports.updateMe = async (req, res) => {
     }
 
     const current = rows[0];
+    let currentPhotos = [];
+    if (current.photos && typeof current.photos === "string") {
+      try {
+        currentPhotos = JSON.parse(current.photos);
+      } catch {}
+    } else if (Array.isArray(current.photos)) currentPhotos = current.photos;
 
     const {
       nama,
@@ -78,7 +98,14 @@ exports.updateMe = async (req, res) => {
       kode_pos,
       lat,
       lng,
+      profile_picture,
+      photos,
     } = req.body;
+
+    let photosPayload = currentPhotos;
+    if (photos !== undefined) {
+      photosPayload = Array.isArray(photos) ? photos : currentPhotos;
+    }
 
     await db.query(
       `UPDATE users SET
@@ -93,7 +120,9 @@ exports.updateMe = async (req, res) => {
         kemitraan = ?,
         role = ?,
         lat = ?,
-        lng = ?
+        lng = ?,
+        profile_picture = ?,
+        photos = ?
        WHERE id = ?`,
       [
         nama ?? current.nama,
@@ -108,6 +137,8 @@ exports.updateMe = async (req, res) => {
         current.role,
         lat != null ? Number(lat) : current.lat,
         lng != null ? Number(lng) : current.lng,
+        profile_picture !== undefined ? profile_picture : current.profile_picture,
+        JSON.stringify(photosPayload),
         userId,
       ],
     );
@@ -115,6 +146,97 @@ exports.updateMe = async (req, res) => {
     res.json({ message: "Profil berhasil diupdate" });
   } catch (err) {
     console.error("UPDATE ME ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// PUT /api/user/me/avatar - upload profile picture (single file)
+exports.uploadAvatar = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    if (!req.file || !req.file.filename) {
+      return res.status(400).json({ message: "Tidak ada file gambar" });
+    }
+    const profilePicture = `/public/profile/${req.file.filename}`;
+    await db.query(
+      "UPDATE users SET profile_picture = ? WHERE id = ?",
+      [profilePicture, userId],
+    );
+    res.json({ profile_picture: profilePicture });
+  } catch (err) {
+    console.error("UPLOAD AVATAR ERROR:", err);
+    const message =
+      err.code === "ER_BAD_FIELD_ERROR"
+        ? "Kolom profile_picture belum ada. Jalankan: node migrations/run-add-profile-photos.js"
+        : "Gagal mengunggah foto profil";
+    res.status(500).json({ message });
+  }
+};
+
+// POST /api/user/me/photos - upload gallery photos (multiple files)
+exports.uploadPhotos = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const files = req.files || [];
+    if (files.length === 0) {
+      return res.status(400).json({ message: "Tidak ada file gambar" });
+    }
+    const newPaths = files.map((f) => `/public/mitra-photos/${f.filename}`);
+    const [rows] = await db.query(
+      "SELECT photos FROM users WHERE id = ?",
+      [userId],
+    );
+    let photos = [];
+    if (rows.length && rows[0].photos && typeof rows[0].photos === "string") {
+      try {
+        photos = JSON.parse(rows[0].photos);
+      } catch {}
+    } else if (rows.length && Array.isArray(rows[0].photos)) {
+      photos = rows[0].photos;
+    }
+    photos = [...photos, ...newPaths].slice(-20); // keep max 20
+    await db.query("UPDATE users SET photos = ? WHERE id = ?", [
+      JSON.stringify(photos),
+      userId,
+    ]);
+    res.json({ photos });
+  } catch (err) {
+    console.error("UPLOAD PHOTOS ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// DELETE /api/user/me/photos - remove one photo from gallery by index or path
+exports.deletePhoto = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { index, path: photoPath } = req.body;
+    const [rows] = await db.query(
+      "SELECT photos FROM users WHERE id = ?",
+      [userId],
+    );
+    let photos = [];
+    if (rows.length && rows[0].photos && typeof rows[0].photos === "string") {
+      try {
+        photos = JSON.parse(rows[0].photos);
+      } catch {}
+    } else if (rows.length && Array.isArray(rows[0].photos)) {
+      photos = rows[0].photos;
+    }
+    if (typeof index === "number" && index >= 0 && index < photos.length) {
+      photos.splice(index, 1);
+    } else if (photoPath && typeof photoPath === "string") {
+      photos = photos.filter((p) => p !== photoPath);
+    } else {
+      return res.status(400).json({ message: "Berikan index atau path foto" });
+    }
+    await db.query("UPDATE users SET photos = ? WHERE id = ?", [
+      JSON.stringify(photos),
+      userId,
+    ]);
+    res.json({ photos });
+  } catch (err) {
+    console.error("DELETE PHOTO ERROR:", err);
     res.status(500).json({ message: "Server error" });
   }
 };

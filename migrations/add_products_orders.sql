@@ -1,0 +1,32 @@
+-- Products and orders for Akses Mitra (online shop).
+-- Run once (adjust if tables exist):
+
+-- CREATE TABLE products (
+--   id INT AUTO_INCREMENT PRIMARY KEY,
+--   name VARCHAR(255) NOT NULL,
+--   description TEXT,
+--   price DECIMAL(12,2) NOT NULL DEFAULT 0,
+--   image VARCHAR(500) NULL,
+--   category VARCHAR(100) NULL,
+--   stock INT NOT NULL DEFAULT 0,
+--   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+-- );
+
+-- CREATE TABLE orders (
+--   id INT AUTO_INCREMENT PRIMARY KEY,
+--   user_id INT NOT NULL,
+--   status VARCHAR(50) NOT NULL DEFAULT 'pending',
+--   total DECIMAL(12,2) NOT NULL DEFAULT 0,
+--   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--   FOREIGN KEY (user_id) REFERENCES users(id)
+-- );
+
+-- CREATE TABLE order_items (
+--   id INT AUTO_INCREMENT PRIMARY KEY,
+--   order_id INT NOT NULL,
+--   product_id INT NOT NULL,
+--   quantity INT NOT NULL DEFAULT 1,
+--   price DECIMAL(12,2) NOT NULL,
+--   FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+--   FOREIGN KEY (product_id) REFERENCES products(id)
+-- );
