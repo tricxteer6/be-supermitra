@@ -1,0 +1,10 @@
+const router = require("express").Router();
+const auth = require("../middleware/auth");
+const { getMe, updateMe } = require("../controllers/userController");
+
+// User biasa bisa akses profil sendiri
+router.get("/me", auth, getMe);
+router.put("/me", auth, updateMe);
+
+module.exports = router;
+
