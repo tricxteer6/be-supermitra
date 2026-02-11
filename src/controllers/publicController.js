@@ -22,9 +22,8 @@ exports.getPublicUsers = async (req, res) => {
     res.json(users);
   } catch (err) {
     console.error("PUBLIC USERS ERROR:", err);
-    const payload = { message: "Server error" };
-    if (process.env.NODE_ENV !== "production") payload.error = err.message;
-    res.status(500).json(payload);
+    // Return empty array so map/page still loads when DB is down or table missing
+    res.json([]);
   }
 };
 

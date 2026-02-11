@@ -151,9 +151,8 @@ exports.publicList = async (req, res) => {
     res.json(rows);
   } catch (err) {
     console.error("CMS PUBLIC LIST ERROR:", err);
-    const payload = { message: "Server error" };
-    if (process.env.NODE_ENV !== "production") payload.error = err.message;
-    res.status(500).json(payload);
+    // Return empty array so home/content sections still load when DB is down or table missing
+    res.json([]);
   }
 };
 

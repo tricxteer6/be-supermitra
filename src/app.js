@@ -14,6 +14,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Health check (no DB) so frontend can verify backend is up
+app.get("/api/health", (req, res) => res.json({ ok: true }));
+
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/course", courseRoutes);
