@@ -1,4 +1,5 @@
 const db = require("../config/db");
+const { deleteUploadedFile } = require("../utils/deleteUploadedFile");
 
 exports.getAllProducts = async (req, res) => {
   try {
@@ -72,7 +73,9 @@ exports.updateProduct = async (req, res) => {
       return res.status(404).json({ message: "Produk tidak ditemukan" });
     }
     const current = rows[0];
-
+    if (req.file && current.image) {
+      deleteUploadedFile(current.image);
+    }
     const imagePath = req.file ? `/public/product/${req.file.filename}` : current.image;
     const nameVal = name !== undefined ? name : current.name;
     const descVal = description !== undefined ? description : current.description;
@@ -93,13 +96,35 @@ exports.updateProduct = async (req, res) => {
 };
 
 exports.deleteProduct = async (req, res) => {
+  const productId = req.params.id;
+  let connection;
   try {
-    const [result] = await db.query("DELETE FROM products WHERE id = ?", [req.params.id]);
+    const [prodRows] = await db.query("SELECT image FROM products WHERE id = ?", [
+      productId,
+    ]);
+    const imageToDelete = prodRows.length ? prodRows[0].image : null;
+
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    await connection.query("DELETE FROM order_items WHERE product_id = ?", [productId]);
+    const [result] = await connection.query("DELETE FROM products WHERE id = ?", [productId]);
+
     if (result.affectedRows === 0) {
+      await connection.rollback();
+      connection.release();
       return res.status(404).json({ message: "Produk tidak ditemukan" });
     }
+
+    await connection.commit();
+    connection.release();
+    deleteUploadedFile(imageToDelete);
     res.json({ message: "Produk berhasil dihapus" });
   } catch (err) {
+    if (connection) {
+      await connection.rollback().catch(() => {});
+      connection.release();
+    }
     console.error("ADMIN DELETE PRODUCT ERROR:", err);
     res.status(500).json({ message: "Server error" });
   }

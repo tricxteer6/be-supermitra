@@ -1,21 +1,5 @@
 const db = require("../config/db");
-const fs = require("fs");
-const path = require("path");
-
-const isLocalCmsImage = (imagePath) =>
-  typeof imagePath === "string" && imagePath.startsWith("/public/cms/");
-
-const deleteLocalImage = (imagePath) => {
-  try {
-    if (!isLocalCmsImage(imagePath)) return;
-    const fullPath = path.join(__dirname, "../..", imagePath.replace(/^\//, ""));
-    if (fs.existsSync(fullPath)) {
-      fs.unlinkSync(fullPath);
-    }
-  } catch {
-    // ignore delete errors
-  }
-};
+const { deleteUploadedFile } = require("../utils/deleteUploadedFile");
 
 // ADMIN: list by type
 exports.adminList = async (req, res) => {
@@ -93,7 +77,7 @@ exports.adminUpdate = async (req, res) => {
     let newImage = current.image;
     if (req.file) {
       // delete old local image if any
-      deleteLocalImage(current.image);
+      deleteUploadedFile(current.image);
       newImage = `/public/cms/${req.file.filename}`;
     } else if (image !== undefined) {
       newImage = image || null;
@@ -144,7 +128,7 @@ exports.adminDelete = async (req, res) => {
       return res.status(404).json({ message: "Konten tidak ditemukan" });
     }
     if (current?.image) {
-      deleteLocalImage(current.image);
+      deleteUploadedFile(current.image);
     }
     res.json({ message: "Konten berhasil dihapus" });
   } catch (err) {

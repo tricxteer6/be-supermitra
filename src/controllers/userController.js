@@ -1,4 +1,5 @@
 const db = require("../config/db");
+const { deleteUploadedFile } = require("../utils/deleteUploadedFile");
 
 // GET /api/user/me
 exports.getMe = async (req, res) => {
@@ -157,11 +158,17 @@ exports.uploadAvatar = async (req, res) => {
     if (!req.file || !req.file.filename) {
       return res.status(400).json({ message: "Tidak ada file gambar" });
     }
+    const [rows] = await db.query(
+      "SELECT profile_picture FROM users WHERE id = ?",
+      [userId],
+    );
+    const oldPicture = rows.length ? rows[0].profile_picture : null;
     const profilePicture = `/public/profile/${req.file.filename}`;
     await db.query(
       "UPDATE users SET profile_picture = ? WHERE id = ?",
       [profilePicture, userId],
     );
+    deleteUploadedFile(oldPicture);
     res.json({ profile_picture: profilePicture });
   } catch (err) {
     console.error("UPLOAD AVATAR ERROR:", err);
@@ -223,13 +230,17 @@ exports.deletePhoto = async (req, res) => {
     } else if (rows.length && Array.isArray(rows[0].photos)) {
       photos = rows[0].photos;
     }
+    let removedPath = null;
     if (typeof index === "number" && index >= 0 && index < photos.length) {
+      removedPath = photos[index];
       photos.splice(index, 1);
     } else if (photoPath && typeof photoPath === "string") {
+      removedPath = photoPath;
       photos = photos.filter((p) => p !== photoPath);
     } else {
       return res.status(400).json({ message: "Berikan index atau path foto" });
     }
+    deleteUploadedFile(removedPath);
     await db.query("UPDATE users SET photos = ? WHERE id = ?", [
       JSON.stringify(photos),
       userId,

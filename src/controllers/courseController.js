@@ -1,4 +1,5 @@
 const db = require("../config/db");
+const { deleteUploadedFile } = require("../utils/deleteUploadedFile");
 
 // GET ALL COURSES (Menampilkan semua termasuk VIP agar bisa muncul di Home)
 exports.getCourses = async (req, res) => {
@@ -131,6 +132,15 @@ exports.updateCourse = async (req, res) => {
     const isVipValue =
       is_vip === "true" || is_vip === 1 || is_vip === true ? 1 : 0;
 
+    let currentImage = null;
+    if (req.file) {
+      const [rows] = await db.query("SELECT image FROM courses WHERE id = ?", [
+        req.params.id,
+      ]);
+      if (rows.length) currentImage = rows[0].image;
+      deleteUploadedFile(currentImage);
+    }
+
     let sql = `
       UPDATE courses SET
         title=?,
@@ -172,7 +182,17 @@ exports.updateCourse = async (req, res) => {
 // ADMIN DELETE
 exports.deleteCourse = async (req, res) => {
   try {
-    await db.query("DELETE FROM courses WHERE id=?", [req.params.id]);
+    const [rows] = await db.query("SELECT image FROM courses WHERE id = ?", [
+      req.params.id,
+    ]);
+    const imageToDelete = rows.length ? rows[0].image : null;
+    const [result] = await db.query("DELETE FROM courses WHERE id=?", [
+      req.params.id,
+    ]);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Course not found" });
+    }
+    deleteUploadedFile(imageToDelete);
     res.json({ message: "Course deleted" });
   } catch (err) {
     console.error("DELETE COURSE ERROR:", err);
