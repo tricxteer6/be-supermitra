@@ -18,12 +18,10 @@ exports.getPublicUsers = async (req, res) => {
         AND lat IS NOT NULL
         AND lng IS NOT NULL
     `);
-
-    res.json(users);
+    return res.json(Array.isArray(users) ? users : []);
   } catch (err) {
     console.error("PUBLIC USERS ERROR:", err);
-    // Return empty array so map/page still loads when DB is down or table missing
-    res.json([]);
+    if (!res.headersSent) res.status(200).json([]);
   }
 };
 

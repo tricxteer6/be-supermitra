@@ -148,11 +148,10 @@ exports.publicList = async (req, res) => {
        ORDER BY sort_order, id`,
       [type],
     );
-    res.json(rows);
+    return res.json(Array.isArray(rows) ? rows : []);
   } catch (err) {
     console.error("CMS PUBLIC LIST ERROR:", err);
-    // Return empty array so home/content sections still load when DB is down or table missing
-    res.json([]);
+    if (!res.headersSent) res.status(200).json([]);
   }
 };
 

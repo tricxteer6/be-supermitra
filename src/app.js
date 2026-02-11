@@ -28,6 +28,20 @@ app.use("/api/user", userRoutes);
 const publicDir = path.join(__dirname, "..", "public");
 app.use("/public", express.static(publicDir));
 
+// Last-resort: avoid 500 for public list endpoints so frontend can load
+app.use((err, req, res, next) => {
+  console.error("UNHANDLED ERROR:", err);
+  const isPublicList =
+    req.path.startsWith("/api/public") &&
+    (req.path === "/api/public/users" || req.path.startsWith("/api/public/content/"));
+  if (isPublicList && !res.headersSent) {
+    return res.status(200).json([]);
+  }
+  if (!res.headersSent) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log("Server running on port", PORT);
