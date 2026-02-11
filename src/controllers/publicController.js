@@ -22,7 +22,9 @@ exports.getPublicUsers = async (req, res) => {
     res.json(users);
   } catch (err) {
     console.error("PUBLIC USERS ERROR:", err);
-    res.status(500).json({ message: "Server error" });
+    const payload = { message: "Server error" };
+    if (process.env.NODE_ENV !== "production") payload.error = err.message;
+    res.status(500).json(payload);
   }
 };
 
@@ -66,6 +68,8 @@ exports.getPublicUserById = async (req, res) => {
     res.json(mitra);
   } catch (err) {
     console.error("PUBLIC USER BY ID ERROR:", err);
-    res.status(500).json({ message: "Server error" });
+    const payload = { message: "Server error" };
+    if (process.env.NODE_ENV !== "production") payload.error = err.message;
+    res.status(500).json(payload);
   }
 };

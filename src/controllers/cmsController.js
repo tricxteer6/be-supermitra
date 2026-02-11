@@ -151,7 +151,9 @@ exports.publicList = async (req, res) => {
     res.json(rows);
   } catch (err) {
     console.error("CMS PUBLIC LIST ERROR:", err);
-    res.status(500).json({ message: "Server error" });
+    const payload = { message: "Server error" };
+    if (process.env.NODE_ENV !== "production") payload.error = err.message;
+    res.status(500).json(payload);
   }
 };
 
