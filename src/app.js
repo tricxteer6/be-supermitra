@@ -12,8 +12,11 @@ const userRoutes = require("./routes/user");
 
 const app = express();
 
-// Allow frontend origins (required when frontend and API are on different domains)
-const defaultOrigins = [
+/* =========================
+   CORS CONFIG (FIXED)
+========================= */
+
+const allowedOrigins = [
   "https://supermitra.masterkuliner.com",
   "https://www.supermitra.masterkuliner.com",
   "https://masterkuliner.com",
@@ -21,22 +24,43 @@ const defaultOrigins = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
 ];
-const extraOrigins = process.env.CORS_ORIGINS
-  ? process.env.CORS_ORIGINS.split(",").map((s) => s.trim()).filter(Boolean)
-  : [];
-const allowedOrigins = [...defaultOrigins, ...extraOrigins];
-app.use(
-  cors({
-    origin: (origin, cb) => {
-      if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
-      return cb(null, true); // allow others in dev; tighten by returning cb(new Error("Not allowed"), false)
-    },
-  })
-);
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // allow non-browser requests (like curl, postman)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    } else {
+      return callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
+
+/* =========================
+   MIDDLEWARE
+========================= */
+
 app.use(express.json());
 
-// Health check (no DB) so frontend can verify backend is up
-app.get("/api/health", (req, res) => res.json({ ok: true }));
+/* =========================
+   HEALTH CHECK
+========================= */
+
+app.get("/api/health", (req, res) => {
+  res.json({ ok: true });
+});
+
+/* =========================
+   ROUTES
+========================= */
 
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
@@ -45,23 +69,30 @@ app.use("/api/akses", aksesRoutes);
 app.use("/api/public", publicRoutes);
 app.use("/api/user", userRoutes);
 
-// Serve uploaded files from backend/public (absolute path so it works regardless of cwd)
+/* =========================
+   STATIC FILES
+========================= */
+
 const publicDir = path.join(__dirname, "..", "public");
 app.use("/public", express.static(publicDir));
 
-// Last-resort: avoid 500 for public list endpoints so frontend can load
+/* =========================
+   ERROR HANDLER
+========================= */
+
 app.use((err, req, res, next) => {
   console.error("UNHANDLED ERROR:", err);
-  const isPublicList =
-    req.path.startsWith("/api/public") &&
-    (req.path === "/api/public/users" || req.path.startsWith("/api/public/content/"));
-  if (isPublicList && !res.headersSent) {
-    return res.status(200).json([]);
-  }
+
   if (!res.headersSent) {
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({
+      message: "Server error",
+    });
   }
 });
+
+/* =========================
+   START SERVER
+========================= */
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
