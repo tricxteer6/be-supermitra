@@ -45,7 +45,7 @@ exports.getMe = async (req, res) => {
     res.json(user);
   } catch (err) {
     console.error("GET ME ERROR:", err);
-    res.status(500).json({ message: "Server error" });
+    if (!res.headersSent) res.status(401).json({ message: "Sesi bermasalah. Silakan login lagi." });
   }
 };
 

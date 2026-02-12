@@ -7,10 +7,15 @@ module.exports = (req, res, next) => {
     return res.status(401).json({ message: "No token" });
 
   const token = authHeader.split(" ")[1];
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    console.error("AUTH: JWT_SECRET is not set");
+    return res.status(500).json({ message: "Server belum dikonfigurasi" });
+  }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; // id & role
+    const decoded = jwt.verify(token, secret);
+    req.user = decoded;
     next();
   } catch (err) {
     return res.status(401).json({ message: "Invalid token" });

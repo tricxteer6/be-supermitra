@@ -20,7 +20,7 @@ exports.getProducts = async (req, res) => {
     res.json(rows);
   } catch (err) {
     console.error("GET PRODUCTS ERROR:", err);
-    res.status(500).json({ message: "Server error" });
+    if (!res.headersSent) res.status(200).json([]);
   }
 };
 
@@ -44,6 +44,6 @@ exports.getProductById = async (req, res) => {
     res.json(product);
   } catch (err) {
     console.error("GET PRODUCT ERROR:", err);
-    res.status(500).json({ message: "Server error" });
+    if (!res.headersSent) res.status(404).json({ message: "Produk tidak ditemukan" });
   }
 };
