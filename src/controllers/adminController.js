@@ -187,6 +187,52 @@ exports.deleteUser = async (req, res) => {
 };
 
 // ======================
+// ADMIN GET USER BY ID
+// ======================
+exports.getUserById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [rows] = await db.query(
+      `SELECT 
+        id,
+        nama,
+        email,
+        alamat,
+        kelurahan,
+        kecamatan,
+        kota,
+        provinsi,
+        kode_pos,
+        kemitraan,
+        role,
+        lat,
+        lng,
+        profile_picture,
+        photos
+       FROM users
+       WHERE id = ?`,
+      [id]
+    );
+    if (!rows.length) {
+      return res.status(404).json({ message: "User tidak ditemukan" });
+    }
+    const user = rows[0];
+    if (user.photos != null && typeof user.photos === "string") {
+      try {
+        user.photos = JSON.parse(user.photos);
+      } catch {
+        user.photos = [];
+      }
+    }
+    if (!Array.isArray(user.photos)) user.photos = user.photos ?? [];
+    res.json(user);
+  } catch (err) {
+    console.error("GET USER BY ID ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ======================
 // ADMIN GET ALL USERS
 // ======================
 exports.getUsers = async (req, res) => {

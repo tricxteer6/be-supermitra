@@ -7,6 +7,7 @@ const {
   registerUser,
   deleteUser,
   getUsers,
+  getUserById,
   updateUser,
 } = require("../controllers/adminController");
 const {
@@ -20,9 +21,10 @@ const cmsController = require("../controllers/cmsController");
 
 // ADMIN ONLY - Users
 router.post("/register", auth, role(["admin"]), registerUser);
-router.delete("/user/:id", auth, role(["admin"]), deleteUser);
 router.get("/users", auth, role(["admin"]), getUsers);
+router.get("/user/:id", auth, role(["admin"]), getUserById);
 router.put("/user/:id", auth, role(["admin"]), updateUser);
+router.delete("/user/:id", auth, role(["admin"]), deleteUser);
 
 // ADMIN ONLY - Products CRUD
 router.get("/products", auth, role(["admin"]), getAllProducts);
