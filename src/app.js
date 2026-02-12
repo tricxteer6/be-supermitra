@@ -11,7 +11,28 @@ const publicRoutes = require("./routes/public");
 const userRoutes = require("./routes/user");
 
 const app = express();
-app.use(cors());
+
+// Allow frontend origins (required when frontend and API are on different domains)
+const defaultOrigins = [
+  "https://supermitra.masterkuliner.com",
+  "https://www.supermitra.masterkuliner.com",
+  "https://masterkuliner.com",
+  "https://www.masterkuliner.com",
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+];
+const extraOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(",").map((s) => s.trim()).filter(Boolean)
+  : [];
+const allowedOrigins = [...defaultOrigins, ...extraOrigins];
+app.use(
+  cors({
+    origin: (origin, cb) => {
+      if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+      return cb(null, true); // allow others in dev; tighten by returning cb(new Error("Not allowed"), false)
+    },
+  })
+);
 app.use(express.json());
 
 // Health check (no DB) so frontend can verify backend is up
