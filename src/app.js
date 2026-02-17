@@ -17,6 +17,7 @@ const app = express();
 ========================= */
 
 const allowedOrigins = [
+  "https://cloud.masterkuliner.com",
   "https://supermitra.masterkuliner.com",
   "https://www.supermitra.masterkuliner.com",
   "https://masterkuliner.com",
@@ -42,7 +43,6 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
 
 /* =========================
    MIDDLEWARE

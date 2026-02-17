@@ -1,6 +1,6 @@
 /**
- * PM2 config for backend on VPS.
- * Usage: pm2 start ecosystem.config.cjs
+ * PM2 config for API at https://cloud.masterkuliner.com
+ * Usage on VPS: pm2 start ecosystem.config.cjs
  */
 module.exports = {
   apps: [
@@ -11,6 +11,9 @@ module.exports = {
       instances: 1,
       exec_mode: "fork",
       env: {
+        NODE_ENV: "production",
+      },
+      env_production: {
         NODE_ENV: "production",
       },
       error_file: "./logs/err.log",
