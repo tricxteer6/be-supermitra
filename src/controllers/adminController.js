@@ -99,6 +99,10 @@ exports.registerUser = async (req, res) => {
     const provinsiVal = str(provinsi);
     const kodePosVal = str(kode_pos);
 
+    // When lat/lng not provided, use 0,0 if DB has NOT NULL (frontend can treat 0,0 as "no location")
+    const latVal = hasLatLng ? Number(lat) : 0;
+    const lngVal = hasLatLng ? Number(lng) : 0;
+
     // ===== INSERT USER =====
     await db.query(
       `INSERT INTO users 
@@ -117,8 +121,8 @@ exports.registerUser = async (req, res) => {
         kodePosVal,
         kemitraan || "DCC",
         role || "user",
-        hasLatLng ? Number(lat) : null,
-        hasLatLng ? Number(lng) : null,
+        latVal,
+        lngVal,
       ]
     );
 
