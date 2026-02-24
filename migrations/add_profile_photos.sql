@@ -1,4 +1,0 @@
--- Add profile picture and gallery photos to users table.
--- Run once (skip if columns already exist):
--- ALTER TABLE users ADD COLUMN profile_picture VARCHAR(500) NULL;
--- ALTER TABLE users ADD COLUMN photos TEXT NULL;

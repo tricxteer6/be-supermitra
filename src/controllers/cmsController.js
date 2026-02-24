@@ -137,14 +137,14 @@ exports.adminDelete = async (req, res) => {
   }
 };
 
-// PUBLIC: list active content by type
+// PUBLIC: list active content by type (is_active = 1 or NULL)
 exports.publicList = async (req, res) => {
   try {
     const type = req.params.type;
     const [rows] = await db.query(
       `SELECT id, type, title, subtitle, body, image, href, sort_order
        FROM cms_contents
-       WHERE type = ? AND is_active = 1
+       WHERE type = ? AND (is_active = 1 OR is_active IS NULL)
        ORDER BY sort_order, id`,
       [type],
     );

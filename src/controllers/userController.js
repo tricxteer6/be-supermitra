@@ -1,5 +1,6 @@
 const db = require("../config/db");
 const { deleteUploadedFile } = require("../utils/deleteUploadedFile");
+const bcrypt = require("bcryptjs");
 
 // GET /api/user/me
 exports.getMe = async (req, res) => {
@@ -11,6 +12,7 @@ exports.getMe = async (req, res) => {
         id,
         nama,
         email,
+        phone,
         alamat,
         kelurahan,
         kecamatan,
@@ -249,6 +251,60 @@ exports.deletePhoto = async (req, res) => {
   } catch (err) {
     console.error("DELETE PHOTO ERROR:", err);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+// PUT /api/user/me/password - change own password (current + new)
+exports.changePassword = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        message: "Password lama dan password baru wajib diisi",
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        message: "Password baru minimal 6 karakter",
+      });
+    }
+
+    const [rows] = await db.query(
+      "SELECT password FROM users WHERE id = ?",
+      [userId],
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "User tidak ditemukan" });
+    }
+
+    const storedHash = rows[0].password;
+    if (!storedHash) {
+      return res.status(400).json({
+        message: "Akun ini belum punya password. Gunakan lupa password atau hubungi admin.",
+      });
+    }
+
+    const match = await bcrypt.compare(currentPassword, storedHash);
+    if (!match) {
+      return res.status(400).json({ message: "Password lama salah" });
+    }
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await db.query("UPDATE users SET password = ? WHERE id = ?", [
+      hashed,
+      userId,
+    ]);
+
+    res.json({ message: "Password berhasil diubah" });
+  } catch (err) {
+    console.error("CHANGE PASSWORD ERROR:", err);
+    if (!res.headersSent) {
+      res.status(500).json({ message: "Gagal mengubah password. Coba lagi." });
+    }
   }
 };
 

@@ -2,6 +2,16 @@ const db = require("../config/db");
 const bcrypt = require("bcryptjs");
 
 // ======================
+// HELPER: NORMALIZE PHONE (62xxxxxxxxxx)
+// ======================
+function normalizePhone(phone) {
+  const digits = String(phone).replace(/\D/g, "");
+  if (digits.startsWith("0")) return "62" + digits.slice(1);
+  if (!digits.startsWith("62")) return "62" + digits;
+  return digits;
+}
+
+// ======================
 // HELPER: HITUNG JARAK (HAVERSINE)
 // ======================
 function getDistance(lat1, lon1, lat2, lon2) {
@@ -28,6 +38,7 @@ exports.registerUser = async (req, res) => {
       nama,
       email,
       password,
+      phone,
       alamat,
       kelurahan,
       kecamatan,
@@ -40,10 +51,10 @@ exports.registerUser = async (req, res) => {
       lng,
     } = req.body;
 
-    // ===== VALIDASI =====
-    if (!nama || !email || !password || lat == null || lng == null) {
+    // ===== VALIDASI (wajib: nama, email, password, alamat, kemitraan, role) =====
+    if (!nama || !email || !password || !alamat || !kemitraan || !role) {
       return res.status(400).json({
-        message: "Nama, email, password, dan lokasi wajib diisi",
+        message: "Nama, email, password, alamat, kemitraan, dan role wajib diisi",
       });
     }
 
@@ -57,33 +68,40 @@ exports.registerUser = async (req, res) => {
       return res.status(400).json({ message: "Email sudah terdaftar" });
     }
 
-    // ===== CEK JARAK 500M =====
-    const [locations] = await db.query(
-      "SELECT id, lat, lng FROM users WHERE lat IS NOT NULL AND lng IS NOT NULL"
-    );
+    const hasLatLng = lat != null && lng != null && Number.isFinite(Number(lat)) && Number.isFinite(Number(lng));
 
-    for (const loc of locations) {
-      const distance = getDistance(lat, lng, loc.lat, loc.lng);
-      if (distance < 500) {
-        return res.status(400).json({
-          message: "Lokasi terlalu dekat dengan user lain (minimal 500 meter)",
-        });
+    // ===== CEK JARAK 500M (hanya jika lat/lng diisi) =====
+    if (hasLatLng) {
+      const [locations] = await db.query(
+        "SELECT id, lat, lng FROM users WHERE lat IS NOT NULL AND lng IS NOT NULL"
+      );
+
+      for (const loc of locations) {
+        const distance = getDistance(lat, lng, loc.lat, loc.lng);
+        if (distance < 500) {
+          return res.status(400).json({
+            message: "Lokasi terlalu dekat dengan user lain (minimal 500 meter)",
+          });
+        }
       }
     }
 
     // ===== HASH PASSWORD =====
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    const phoneNormalized = phone ? normalizePhone(phone) : null;
+
     // ===== INSERT USER =====
     await db.query(
       `INSERT INTO users 
-      (nama, email, password, alamat, kelurahan, kecamatan, kota, provinsi, kode_pos, kemitraan, role, lat, lng)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      (nama, email, password, phone, alamat, kelurahan, kecamatan, kota, provinsi, kode_pos, kemitraan, role, lat, lng)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
         nama,
         email,
         hashedPassword,
-        alamat || null,
+        phoneNormalized,
+        alamat,
         kelurahan || null,
         kecamatan || null,
         kota || null,
@@ -91,8 +109,8 @@ exports.registerUser = async (req, res) => {
         kode_pos || null,
         kemitraan || "DCC",
         role || "user",
-        Number(lat),
-        Number(lng),
+        hasLatLng ? Number(lat) : null,
+        hasLatLng ? Number(lng) : null,
       ]
     );
 
@@ -111,6 +129,7 @@ exports.updateUser = async (req, res) => {
     const {
       nama,
       email,
+      phone,
       alamat,
       kelurahan,
       kecamatan,
@@ -130,11 +149,14 @@ exports.updateUser = async (req, res) => {
       return res.status(400).json({ message: "ID user tidak valid" });
     }
 
+    const phoneNormalized = phone != null && String(phone).trim() !== "" ? normalizePhone(phone) : null;
+
     // ===== UPDATE =====
     await db.query(
       `UPDATE users SET
         nama = ?,
         email = ?,
+        phone = ?,
         alamat = ?,
         kelurahan = ?,
         kecamatan = ?,
@@ -149,6 +171,7 @@ exports.updateUser = async (req, res) => {
       [
         nama,
         email,
+        phoneNormalized,
         alamat || null,
         kelurahan || null,
         kecamatan || null,
@@ -197,6 +220,7 @@ exports.getUserById = async (req, res) => {
         id,
         nama,
         email,
+        phone,
         alamat,
         kelurahan,
         kecamatan,
@@ -242,6 +266,7 @@ exports.getUsers = async (req, res) => {
         id,
         nama,
         email,
+        phone,
         alamat,
         kelurahan,
         kecamatan,

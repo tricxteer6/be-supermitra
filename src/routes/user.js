@@ -8,10 +8,12 @@ const {
   uploadAvatar,
   uploadPhotos,
   deletePhoto,
+  changePassword,
 } = require("../controllers/userController");
 
 router.get("/me", auth, getMe);
 router.put("/me", auth, updateMe);
+router.put("/me/password", auth, changePassword);
 router.put("/me/avatar", auth, (req, res, next) => {
   uploadProfile.single("avatar")(req, res, (err) => {
     if (err) {
