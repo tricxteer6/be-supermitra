@@ -16,6 +16,11 @@ const app = express();
    CORS CONFIG (FIXED)
 ========================= */
 
+const envOrigins = (process.env.CORS_ORIGINS || "")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+
 const allowedOrigins = [
   "https://cloud.masterkuliner.com",
   "https://supermitra.masterkuliner.com",
@@ -24,6 +29,7 @@ const allowedOrigins = [
   "https://www.masterkuliner.com",
   "http://localhost:5173",
   "http://127.0.0.1:5173",
+  ...envOrigins,
 ];
 
 const corsOptions = {
@@ -34,6 +40,7 @@ const corsOptions = {
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     } else {
+      console.warn("CORS rejected origin:", origin, "Allowed:", allowedOrigins.join(", "));
       return callback(new Error("Not allowed by CORS"));
     }
   },
