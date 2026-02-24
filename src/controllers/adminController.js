@@ -91,6 +91,14 @@ exports.registerUser = async (req, res) => {
 
     const phoneNormalized = phone ? normalizePhone(phone) : null;
 
+    // Use empty string for address columns when null so DBs with NOT NULL on these columns accept the insert
+    const str = (v) => (v != null && String(v).trim() !== "" ? String(v).trim() : "");
+    const kelurahanVal = str(kelurahan);
+    const kecamatanVal = str(kecamatan);
+    const kotaVal = str(kota);
+    const provinsiVal = str(provinsi);
+    const kodePosVal = str(kode_pos);
+
     // ===== INSERT USER =====
     await db.query(
       `INSERT INTO users 
@@ -101,12 +109,12 @@ exports.registerUser = async (req, res) => {
         email,
         hashedPassword,
         phoneNormalized,
-        alamat,
-        kelurahan || null,
-        kecamatan || null,
-        kota || null,
-        provinsi || null,
-        kode_pos || null,
+        alamat || "",
+        kelurahanVal,
+        kecamatanVal,
+        kotaVal,
+        provinsiVal,
+        kodePosVal,
         kemitraan || "DCC",
         role || "user",
         hasLatLng ? Number(lat) : null,
@@ -117,7 +125,10 @@ exports.registerUser = async (req, res) => {
     res.json({ message: "User berhasil didaftarkan" });
   } catch (err) {
     console.error("REGISTER USER ERROR:", err);
-    res.status(500).json({ message: "Server error" });
+    const message = err.code === "ER_BAD_FIELD_ERROR" || err.message?.includes("Unknown column")
+      ? `Database schema error: ${err.message}. Pastikan tabel users punya kolom 'phone'. Jalankan: ALTER TABLE users ADD COLUMN phone VARCHAR(20) NULL AFTER email;`
+      : (err.message || "Server error");
+    res.status(500).json({ message });
   }
 };
 
