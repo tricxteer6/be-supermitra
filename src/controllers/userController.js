@@ -24,7 +24,8 @@ exports.getMe = async (req, res) => {
         lat,
         lng,
         profile_picture,
-        photos
+        photos,
+        csro_phone
        FROM users
        WHERE id = ?`,
       [userId],

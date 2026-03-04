@@ -49,13 +49,47 @@ exports.registerUser = async (req, res) => {
       role,
       lat,
       lng,
+      admin_permissions,
+      csro_phone,
     } = req.body;
 
-    // ===== VALIDASI (wajib: nama, email, password, alamat, kemitraan, role) =====
-    if (!nama || !email || !password || !alamat || !kemitraan || !role) {
+    const roleLower = String(role || "").toLowerCase();
+
+    // ===== VALIDASI DASAR: nama, email, password, role selalu wajib =====
+    if (!nama || !email || !password || !roleLower) {
       return res.status(400).json({
-        message: "Nama, email, password, alamat, kemitraan, dan role wajib diisi",
+        message: "Nama, email, password, dan role wajib diisi",
       });
+    }
+
+    const isAdmin = roleLower === "admin";
+
+    // ===== VALIDASI KHUSUS ADMIN =====
+    if (isAdmin) {
+      // Admin tidak wajib isi alamat/kemitraan/lokasi, tapi wajib punya minimal 1 permission
+      let perms = [];
+      if (Array.isArray(admin_permissions)) {
+        perms = admin_permissions;
+      } else if (typeof admin_permissions === "string" && admin_permissions.trim() !== "") {
+        try {
+          const parsed = JSON.parse(admin_permissions);
+          if (Array.isArray(parsed)) perms = parsed;
+        } catch {
+          // biarkan kosong, akan ditolak di bawah
+        }
+      }
+      if (!perms.length) {
+        return res.status(400).json({
+          message: "Admin wajib memiliki minimal satu hak akses",
+        });
+      }
+    } else {
+      // ===== VALIDASI KHUSUS NON-ADMIN (user/vip): alamat & kemitraan tetap wajib =====
+      if (!alamat || !kemitraan) {
+        return res.status(400).json({
+          message: "Alamat dan kemitraan wajib diisi untuk user non-admin",
+        });
+      }
     }
 
     // ===== CEK EMAIL DUPLIKAT =====
@@ -70,8 +104,8 @@ exports.registerUser = async (req, res) => {
 
     const hasLatLng = lat != null && lng != null && Number.isFinite(Number(lat)) && Number.isFinite(Number(lng));
 
-    // ===== CEK JARAK 500M (hanya jika lat/lng diisi) =====
-    if (hasLatLng) {
+    // ===== CEK JARAK 500M (hanya jika lat/lng diisi dan BUKAN admin) =====
+    if (!isAdmin && hasLatLng) {
       const [locations] = await db.query(
         "SELECT id, lat, lng FROM users WHERE lat IS NOT NULL AND lng IS NOT NULL"
       );
@@ -103,11 +137,24 @@ exports.registerUser = async (req, res) => {
     const latVal = hasLatLng ? Number(lat) : 0;
     const lngVal = hasLatLng ? Number(lng) : 0;
 
+    // ===== NORMALIZE ADMIN PERMISSIONS (optional) =====
+    let adminPermissionsValue = null;
+    if (Array.isArray(admin_permissions)) {
+      adminPermissionsValue = JSON.stringify(admin_permissions);
+    } else if (typeof admin_permissions === "string" && admin_permissions.trim() !== "") {
+      try {
+        const parsed = JSON.parse(admin_permissions);
+        adminPermissionsValue = Array.isArray(parsed) ? JSON.stringify(parsed) : null;
+      } catch {
+        adminPermissionsValue = null;
+      }
+    }
+
     // ===== INSERT USER =====
     await db.query(
       `INSERT INTO users 
-      (nama, email, password, phone, alamat, kelurahan, kecamatan, kota, provinsi, kode_pos, kemitraan, role, lat, lng)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      (nama, email, password, phone, alamat, kelurahan, kecamatan, kota, provinsi, kode_pos, kemitraan, role, lat, lng, admin_permissions, csro_phone)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
         nama,
         email,
@@ -123,6 +170,8 @@ exports.registerUser = async (req, res) => {
         role || "user",
         latVal,
         lngVal,
+        adminPermissionsValue,
+        csro_phone || null,
       ]
     );
 
@@ -130,7 +179,7 @@ exports.registerUser = async (req, res) => {
   } catch (err) {
     console.error("REGISTER USER ERROR:", err);
     const message = err.code === "ER_BAD_FIELD_ERROR" || err.message?.includes("Unknown column")
-      ? `Database schema error: ${err.message}. Pastikan tabel users punya kolom 'phone'. Jalankan: ALTER TABLE users ADD COLUMN phone VARCHAR(20) NULL AFTER email;`
+      ? `Database schema error: ${err.message}. Pastikan tabel users punya kolom 'phone' dan 'admin_permissions'. Contoh: ALTER TABLE users ADD COLUMN phone VARCHAR(20) NULL AFTER email; ALTER TABLE users ADD COLUMN admin_permissions JSON NULL AFTER role;`
       : (err.message || "Server error");
     res.status(500).json({ message });
   }
@@ -155,6 +204,8 @@ exports.updateUser = async (req, res) => {
       kemitraan,
       lat,
       lng,
+      admin_permissions,
+      csro_phone,
     } = req.body;
 
     const { id } = req.params;
@@ -165,6 +216,18 @@ exports.updateUser = async (req, res) => {
     }
 
     const phoneNormalized = phone != null && String(phone).trim() !== "" ? normalizePhone(phone) : null;
+
+    let adminPermissionsValue = null;
+    if (Array.isArray(admin_permissions)) {
+      adminPermissionsValue = JSON.stringify(admin_permissions);
+    } else if (typeof admin_permissions === "string" && admin_permissions.trim() !== "") {
+      try {
+        const parsed = JSON.parse(admin_permissions);
+        adminPermissionsValue = Array.isArray(parsed) ? JSON.stringify(parsed) : null;
+      } catch {
+        adminPermissionsValue = null;
+      }
+    }
 
     // ===== UPDATE =====
     await db.query(
@@ -181,7 +244,9 @@ exports.updateUser = async (req, res) => {
         role = ?,
         kemitraan = ?,
         lat = ?,
-        lng = ?
+        lng = ?,
+        admin_permissions = ?,
+        csro_phone = ?
        WHERE id = ?`,
       [
         nama,
@@ -197,6 +262,8 @@ exports.updateUser = async (req, res) => {
         kemitraan,
         lat != null ? Number(lat) : null,
         lng != null ? Number(lng) : null,
+        adminPermissionsValue,
+        csro_phone || null,
         id,
       ]
     );
@@ -247,7 +314,9 @@ exports.getUserById = async (req, res) => {
         lat,
         lng,
         profile_picture,
-        photos
+        photos,
+        admin_permissions,
+        csro_phone
        FROM users
        WHERE id = ?`,
       [id]
@@ -264,6 +333,14 @@ exports.getUserById = async (req, res) => {
       }
     }
     if (!Array.isArray(user.photos)) user.photos = user.photos ?? [];
+
+    if (user.admin_permissions != null && typeof user.admin_permissions === "string") {
+      try {
+        user.admin_permissions = JSON.parse(user.admin_permissions);
+      } catch {
+        user.admin_permissions = null;
+      }
+    }
     res.json(user);
   } catch (err) {
     console.error("GET USER BY ID ERROR:", err);
@@ -291,14 +368,80 @@ exports.getUsers = async (req, res) => {
         kemitraan,
         role,
         lat,
-        lng
+        lng,
+        admin_permissions,
+        csro_phone
       FROM users
       ORDER BY id DESC
     `);
 
-    res.json(users);
+    const normalized = users.map((u) => {
+      let parsedPerms = u.admin_permissions;
+      if (u.admin_permissions != null && typeof u.admin_permissions === "string") {
+        try {
+          parsedPerms = JSON.parse(u.admin_permissions);
+        } catch {
+          parsedPerms = null;
+        }
+      }
+      return {
+        ...u,
+        admin_permissions: parsedPerms,
+      };
+    });
+
+    res.json(normalized);
   } catch (err) {
     console.error("GET USERS ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ======================
+// ADMIN: LIST CSRO CANDIDATES (admin produk)
+// ======================
+exports.getCsroList = async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT 
+        id,
+        nama,
+        email,
+        phone,
+        kemitraan,
+        role,
+        admin_permissions
+      FROM users
+      WHERE role = 'admin'`
+    );
+
+    const list = rows
+      .map((u) => {
+        let perms = u.admin_permissions;
+        if (perms != null && typeof perms === "string") {
+          try {
+            perms = JSON.parse(perms);
+          } catch {
+            perms = null;
+          }
+        }
+        const arr = Array.isArray(perms) ? perms : [];
+        const hasProductManage = arr.includes("product:manage");
+        const isFullAdmin = !arr.length; // admin lama tanpa admin_permissions dianggap full-access
+        if (!hasProductManage && !isFullAdmin) return null;
+        return {
+          id: u.id,
+          nama: u.nama,
+          email: u.email,
+          phone: u.phone,
+          kemitraan: u.kemitraan,
+        };
+      })
+      .filter(Boolean);
+
+    res.json(list);
+  } catch (err) {
+    console.error("GET CSRO LIST ERROR:", err);
     res.status(500).json({ message: "Server error" });
   }
 };

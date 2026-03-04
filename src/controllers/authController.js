@@ -33,8 +33,30 @@ exports.login = async (req, res) => {
       return res.status(500).json({ message: "Server belum dikonfigurasi. Set JWT_SECRET." });
     }
 
+    let permissions = [];
+    if (user.role === "admin") {
+      try {
+        if (Array.isArray(user.admin_permissions)) {
+          permissions = user.admin_permissions;
+        } else if (
+          typeof user.admin_permissions === "string" &&
+          user.admin_permissions.trim() !== ""
+        ) {
+          permissions = JSON.parse(user.admin_permissions);
+        }
+      } catch (e) {
+        console.error("LOGIN: failed to parse admin_permissions for user", user.id, e.message);
+        permissions = [];
+      }
+    }
+
     const token = jwt.sign(
-      { id: user.id, role: user.role, kemitraan: user.kemitraan || null },
+      {
+        id: user.id,
+        role: user.role,
+        kemitraan: user.kemitraan || null,
+        permissions,
+      },
       secret,
       { expiresIn: "1d" }
     );
@@ -47,6 +69,7 @@ exports.login = async (req, res) => {
         role: user.role,
         kemitraan: user.kemitraan || null,
         profile_picture: user.profile_picture || null,
+        permissions,
       },
     });
   } catch (err) {
