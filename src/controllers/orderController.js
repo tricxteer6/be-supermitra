@@ -33,7 +33,9 @@ exports.createOrder = async (req, res) => {
         const userKemitraan = req.user?.kemitraan || null;
         if (userKemitraan) {
           const kemStr = (product.kemitraan || "").trim();
-          const allowed = !kemStr || kemStr === "" || kemStr.split(",").map((s) => s.trim()).filter(Boolean).includes(userKemitraan);
+          const userKem = String(userKemitraan).trim().toLowerCase();
+          const list = kemStr ? kemStr.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean) : [];
+          const allowed = list.length === 0 || list.includes(userKem);
           if (!allowed) {
             await conn.rollback();
             return res.status(403).json({ message: "Produk tidak tersedia untuk kemitraan Anda" });

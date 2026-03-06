@@ -1,23 +1,31 @@
 const db = require("../config/db");
 
+/** Cek apakah produk boleh dilihat user (kemitraan produk kosong = semua; isi = user harus ada di list; case-insensitive + trim) */
+function productAllowedForKemitraan(productKemitraanStr, userKemitraan) {
+  const kem = (productKemitraanStr ?? "").toString().trim();
+  if (!kem) return true;
+  const user = (userKemitraan ?? "").toString().trim().toLowerCase();
+  if (!user) return true;
+  const list = kem.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+  return list.includes(user);
+}
+
 /** User-facing: list products (filter by user kemitraan when set) */
 exports.getProducts = async (req, res) => {
   try {
     const isAdmin = req.user?.role === "admin";
-    const kemitraan = req.user?.kemitraan || null;
+    const userKemitraan = req.user?.kemitraan ?? null;
 
-    let sql = `SELECT id, name, description, price, image, category, stock, kemitraan
-       FROM products`;
-    const params = [];
+    const sql = `SELECT id, name, description, price, image, category, stock, kemitraan
+       FROM products ORDER BY name`;
+    const [rows] = await db.query(sql);
 
-    if (!isAdmin && kemitraan) {
-      sql += ` WHERE (kemitraan IS NULL OR TRIM(kemitraan) = '' OR FIND_IN_SET(?, REPLACE(TRIM(kemitraan), ' ', '')) > 0)`;
-      params.push(kemitraan);
+    if (isAdmin || !userKemitraan) {
+      return res.json(rows);
     }
-    sql += ` ORDER BY name`;
 
-    const [rows] = await db.query(sql, params);
-    res.json(rows);
+    const filtered = rows.filter((p) => productAllowedForKemitraan(p.kemitraan, userKemitraan));
+    res.json(filtered);
   } catch (err) {
     console.error("GET PRODUCTS ERROR:", err);
     if (!res.headersSent) res.status(200).json([]);
@@ -39,8 +47,7 @@ exports.getProductById = async (req, res) => {
     const isAdmin = req.user?.role === "admin";
     const userKemitraan = req.user?.kemitraan || null;
     if (!isAdmin && userKemitraan) {
-      const kemStr = (product.kemitraan || "").trim();
-      const allowed = !kemStr || kemStr === "" || kemStr.split(",").map((s) => s.trim()).filter(Boolean).includes(userKemitraan);
+      const allowed = productAllowedForKemitraan(product.kemitraan, userKemitraan);
       if (!allowed) {
         return res.status(403).json({ message: "Produk tidak tersedia untuk kemitraan Anda" });
       }
