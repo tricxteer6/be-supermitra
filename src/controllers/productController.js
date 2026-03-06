@@ -16,7 +16,7 @@ exports.getProducts = async (req, res) => {
     const isAdmin = req.user?.role === "admin";
     const userKemitraan = req.user?.kemitraan ?? null;
 
-    const sql = `SELECT id, name, description, price, image, category, stock, kemitraan
+    const sql = `SELECT id, name, description, price_free, price_vip, image, category, stock, kemitraan
        FROM products ORDER BY name`;
     const [rows] = await db.query(sql);
 
@@ -36,7 +36,7 @@ exports.getProducts = async (req, res) => {
 exports.getProductById = async (req, res) => {
   try {
     const [rows] = await db.query(
-      `SELECT id, name, description, price, image, category, stock, kemitraan
+      `SELECT id, name, description, price_free, price_vip, image, category, stock, kemitraan
        FROM products WHERE id = ?`,
       [req.params.id]
     );

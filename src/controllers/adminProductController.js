@@ -4,7 +4,7 @@ const { deleteUploadedFile } = require("../utils/deleteUploadedFile");
 exports.getAllProducts = async (req, res) => {
   try {
     const [rows] = await db.query(
-      `SELECT id, name, description, price, image, category, stock, kemitraan
+      `SELECT id, name, description, price_free, price_vip, image, category, stock, kemitraan
        FROM products ORDER BY name`
     );
     res.json(rows);
@@ -17,7 +17,7 @@ exports.getAllProducts = async (req, res) => {
 exports.getProductById = async (req, res) => {
   try {
     const [rows] = await db.query(
-      `SELECT id, name, description, price, image, category, stock, kemitraan
+      `SELECT id, name, description, price_free, price_vip, image, category, stock, kemitraan
        FROM products WHERE id = ?`,
       [req.params.id]
     );
@@ -43,21 +43,28 @@ function normalizeKemitraan(kemitraan) {
 
 exports.createProduct = async (req, res) => {
   try {
-    const { name, description, price, category, stock, kemitraan } = req.body;
-    if (!name || price == null) {
-      return res.status(400).json({ message: "Nama dan harga wajib diisi" });
+    const { name, description, price_free, price_vip, category, stock, kemitraan } = req.body;
+    if (!name || (price_free == null && price_vip == null)) {
+      return res.status(400).json({ message: "Nama dan minimal satu harga wajib diisi" });
     }
     const imagePath = req.file ? `/public/product/${req.file.filename}` : null;
     const stockNum = parseInt(stock, 10);
-    const priceNum = parseFloat(price);
+    const priceFreeNum = parseFloat(
+      price_free != null && price_free !== "" ? price_free : price_vip,
+    );
+    const priceVipNum = parseFloat(
+      price_vip != null && price_vip !== "" ? price_vip : price_free,
+    );
     const kemitraanVal = normalizeKemitraan(kemitraan);
     await db.query(
-      `INSERT INTO products (name, description, price, image, category, stock, kemitraan)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO products (name, description, price, price_free, price_vip, image, category, stock, kemitraan)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         name,
         description || null,
-        isNaN(priceNum) ? 0 : priceNum,
+        isNaN(priceFreeNum) ? 0 : priceFreeNum,
+        isNaN(priceFreeNum) ? 0 : priceFreeNum,
+        isNaN(priceVipNum) ? (isNaN(priceFreeNum) ? 0 : priceFreeNum) : priceVipNum,
         imagePath,
         category || null,
         isNaN(stockNum) ? 0 : stockNum,
@@ -74,10 +81,10 @@ exports.createProduct = async (req, res) => {
 exports.updateProduct = async (req, res) => {
   try {
     const id = req.params.id;
-    const { name, description, price, category, stock, kemitraan } = req.body;
+    const { name, description, price_free, price_vip, category, stock, kemitraan } = req.body;
 
     const [rows] = await db.query(
-      "SELECT id, name, description, price, image, category, stock, kemitraan FROM products WHERE id = ?",
+      "SELECT id, name, description, price, price_free, price_vip, image, category, stock, kemitraan FROM products WHERE id = ?",
       [id]
     );
     if (!rows.length) {
@@ -90,14 +97,34 @@ exports.updateProduct = async (req, res) => {
     const imagePath = req.file ? `/public/product/${req.file.filename}` : current.image;
     const nameVal = name !== undefined ? name : current.name;
     const descVal = description !== undefined ? description : current.description;
-    const priceVal = price !== undefined ? parseFloat(price) : Number(current.price);
+    const priceFreeVal =
+      price_free !== undefined && price_free !== ""
+        ? parseFloat(price_free)
+        : Number(current.price_free ?? current.price);
+    const priceVipVal =
+      price_vip !== undefined && price_vip !== ""
+        ? parseFloat(price_vip)
+        : Number(current.price_vip ?? priceFreeVal);
     const categoryVal = category !== undefined ? category : current.category;
     const stockVal = stock !== undefined ? parseInt(stock, 10) : current.stock;
     const kemitraanVal = kemitraan !== undefined ? normalizeKemitraan(kemitraan) : current.kemitraan;
 
     await db.query(
-      `UPDATE products SET name = ?, description = ?, price = ?, image = ?, category = ?, stock = ?, kemitraan = ? WHERE id = ?`,
-      [nameVal, descVal, priceVal, imagePath, categoryVal, stockVal, kemitraanVal, id]
+      `UPDATE products 
+       SET name = ?, description = ?, price = ?, price_free = ?, price_vip = ?, image = ?, category = ?, stock = ?, kemitraan = ?
+       WHERE id = ?`,
+      [
+        nameVal,
+        descVal,
+        priceFreeVal,
+        priceFreeVal,
+        priceVipVal,
+        imagePath,
+        categoryVal,
+        stockVal,
+        kemitraanVal,
+        id,
+      ]
     );
     res.json({ message: "Produk berhasil diupdate" });
   } catch (err) {

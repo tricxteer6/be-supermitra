@@ -30,6 +30,28 @@ function getDistance(lat1, lon1, lat2, lon2) {
 }
 
 // ======================
+// HELPER: GENERATE MITRA ID (YYYYMM + 3 digit urutan)
+// ======================
+async function generateMitraIdForDate(date) {
+  if (!date) return null;
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return null;
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const prefix = `${year}${month}`; // contoh: 202606
+
+  // Ambil urutan terbesar untuk prefix ini, lalu +1
+  const [rows] = await db.query(
+    "SELECT MAX(CAST(RIGHT(mitra_id, 3) AS UNSIGNED)) AS max_seq FROM users WHERE mitra_id LIKE ?",
+    [`${prefix}%`]
+  );
+  const maxSeq = rows && rows[0] && rows[0].max_seq ? Number(rows[0].max_seq) : 0;
+  const nextSeq = maxSeq + 1;
+  const seqStr = String(nextSeq).padStart(3, "0");
+  return `${prefix}${seqStr}`; // contoh: 202606001
+}
+
+// ======================
 // ADMIN REGISTER USER
 // ======================
 exports.registerUser = async (req, res) => {
@@ -51,6 +73,7 @@ exports.registerUser = async (req, res) => {
       lng,
       admin_permissions,
       csro_phone,
+      mitra_join_date, // opsional: kalau tidak dikirim, pakai tanggal hari ini
     } = req.body;
 
     const roleLower = String(role || "").toLowerCase();
@@ -150,11 +173,19 @@ exports.registerUser = async (req, res) => {
       }
     }
 
+    // ===== HITUNG TANGGAL JOIN & MITRA_ID =====
+    const joinDate = mitra_join_date ? new Date(mitra_join_date) : new Date();
+    const joinDateStr = `${joinDate.getFullYear()}-${String(joinDate.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}-${String(joinDate.getDate()).padStart(2, "0")}`; // YYYY-MM-DD
+    const mitraId = await generateMitraIdForDate(joinDateStr);
+
     // ===== INSERT USER =====
     await db.query(
       `INSERT INTO users 
-      (nama, email, password, phone, alamat, kelurahan, kecamatan, kota, provinsi, kode_pos, kemitraan, role, lat, lng, admin_permissions, csro_phone)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      (nama, email, password, phone, alamat, kelurahan, kecamatan, kota, provinsi, kode_pos, kemitraan, role, lat, lng, admin_permissions, csro_phone, mitra_join_date, mitra_id)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
         nama,
         email,
@@ -172,6 +203,8 @@ exports.registerUser = async (req, res) => {
         lngVal,
         adminPermissionsValue,
         csro_phone || null,
+        joinDateStr,
+        mitraId,
       ]
     );
 
@@ -206,6 +239,8 @@ exports.updateUser = async (req, res) => {
       lng,
       admin_permissions,
       csro_phone,
+      mitra_join_date,
+      mitra_id,
     } = req.body;
 
     const { id } = req.params;
@@ -245,6 +280,8 @@ exports.updateUser = async (req, res) => {
         kemitraan = ?,
         lat = ?,
         lng = ?,
+        mitra_join_date = ?,
+        mitra_id = ?,
         admin_permissions = ?,
         csro_phone = ?
        WHERE id = ?`,
@@ -262,6 +299,8 @@ exports.updateUser = async (req, res) => {
         kemitraan,
         lat != null ? Number(lat) : null,
         lng != null ? Number(lng) : null,
+        mitra_join_date || null,
+        mitra_id || null,
         adminPermissionsValue,
         csro_phone || null,
         id,
@@ -430,7 +469,9 @@ exports.getUsers = async (req, res) => {
         lat,
         lng,
         admin_permissions,
-        csro_phone
+        csro_phone,
+        mitra_join_date,
+        mitra_id
       FROM users
       ORDER BY id DESC
     `);

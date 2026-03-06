@@ -25,7 +25,9 @@ exports.getMe = async (req, res) => {
         lng,
         profile_picture,
         photos,
-        csro_phone
+        csro_phone,
+        mitra_join_date,
+        mitra_id
        FROM users
        WHERE id = ?`,
       [userId],

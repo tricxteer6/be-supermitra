@@ -16,13 +16,15 @@ exports.createOrder = async (req, res) => {
       let total = 0;
       const orderItems = [];
 
+      const role = req.user?.role || "user";
+
       for (const item of items) {
         const productId = item.productId || item.product_id;
         const quantity = Math.max(1, parseInt(item.quantity, 10) || 1);
         if (!productId) continue;
 
         const [products] = await conn.query(
-          "SELECT id, price, stock, kemitraan FROM products WHERE id = ?",
+          "SELECT id, price, price_free, price_vip, stock, kemitraan FROM products WHERE id = ?",
           [productId]
         );
         if (!products.length) {
@@ -47,12 +49,20 @@ exports.createOrder = async (req, res) => {
             message: `Stok tidak cukup untuk produk: ${productId}`,
           });
         }
-        const subtotal = Number(product.price) * quantity;
+
+        const basePrice =
+          product.price_free != null ? Number(product.price_free) : Number(product.price);
+        const vipPrice =
+          product.price_vip != null ? Number(product.price_vip) : basePrice;
+        const unitPrice =
+          role === "vip" || role === "admin" ? vipPrice : basePrice;
+
+        const subtotal = unitPrice * quantity;
         total += subtotal;
         orderItems.push({
           product_id: productId,
           quantity,
-          price: product.price,
+          price: unitPrice,
         });
       }
 
@@ -72,10 +82,7 @@ exports.createOrder = async (req, res) => {
           "INSERT INTO order_items (order_id, product_id, quantity, price) VALUES (?, ?, ?, ?)",
           [orderId, oi.product_id, oi.quantity, oi.price]
         );
-        await conn.query(
-          "UPDATE products SET stock = stock - ? WHERE id = ?",
-          [oi.quantity, oi.product_id]
-        );
+        // Stok tidak dikurangi di sini; dikurangi saat admin Accept di halaman Kelola Order
       }
 
       await conn.commit();

@@ -20,6 +20,13 @@ const {
   updateProduct,
   deleteProduct,
 } = require("../controllers/adminProductController");
+const {
+  getOrders,
+  acceptOrder,
+  rejectOrder,
+  deleteOrder,
+  getOrderLocationStats,
+} = require("../controllers/adminOrderController");
 const cmsController = require("../controllers/cmsController");
 
 // ADMIN ONLY - Users (permission: user:manage)
@@ -112,6 +119,45 @@ router.delete(
   role(["admin"]),
   requirePermissions(["product:manage"]),
   deleteProduct,
+);
+
+// ADMIN ONLY - Orders (permission: product:manage)
+router.get(
+  "/orders",
+  auth,
+  role(["admin"]),
+  requirePermissions(["product:manage"]),
+  getOrders,
+);
+router.patch(
+  "/orders/:id/accept",
+  auth,
+  role(["admin"]),
+  requirePermissions(["product:manage"]),
+  acceptOrder,
+);
+router.patch(
+  "/orders/:id/reject",
+  auth,
+  role(["admin"]),
+  requirePermissions(["product:manage"]),
+  rejectOrder,
+);
+
+router.delete(
+  "/orders/:id",
+  auth,
+  role(["admin"]),
+  requirePermissions(["product:manage"]),
+  deleteOrder,
+);
+
+router.get(
+  "/orders/location-stats",
+  auth,
+  role(["admin"]),
+  requirePermissions(["product:manage"]),
+  getOrderLocationStats,
 );
 
 // ADMIN ONLY - CMS content (permission: content:manage)
