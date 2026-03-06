@@ -10,7 +10,7 @@ exports.login = async (req, res) => {
     }
 
     const [users] = await db.query(
-      "SELECT * FROM users WHERE email = ?",
+      "SELECT id, nama, email, password, role, kemitraan, profile_picture, admin_permissions, csro_phone FROM users WHERE email = ?",
       [email]
     );
 
@@ -69,6 +69,7 @@ exports.login = async (req, res) => {
         role: user.role,
         kemitraan: user.kemitraan || null,
         profile_picture: user.profile_picture || null,
+        csro_phone: user.csro_phone || null,
         permissions,
       },
     });

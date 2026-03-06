@@ -31,6 +31,16 @@ exports.getProductById = async (req, res) => {
   }
 };
 
+function normalizeKemitraan(kemitraan) {
+  if (kemitraan == null || kemitraan === "") return null;
+  if (Array.isArray(kemitraan)) {
+    const joined = kemitraan.filter(Boolean).map((s) => String(s).trim()).join(",");
+    return joined || null;
+  }
+  const s = String(kemitraan).trim();
+  return s || null;
+}
+
 exports.createProduct = async (req, res) => {
   try {
     const { name, description, price, category, stock, kemitraan } = req.body;
@@ -40,6 +50,7 @@ exports.createProduct = async (req, res) => {
     const imagePath = req.file ? `/public/product/${req.file.filename}` : null;
     const stockNum = parseInt(stock, 10);
     const priceNum = parseFloat(price);
+    const kemitraanVal = normalizeKemitraan(kemitraan);
     await db.query(
       `INSERT INTO products (name, description, price, image, category, stock, kemitraan)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -50,7 +61,7 @@ exports.createProduct = async (req, res) => {
         imagePath,
         category || null,
         isNaN(stockNum) ? 0 : stockNum,
-        kemitraan || null,
+        kemitraanVal,
       ]
     );
     res.status(201).json({ message: "Produk berhasil ditambah" });
@@ -82,7 +93,7 @@ exports.updateProduct = async (req, res) => {
     const priceVal = price !== undefined ? parseFloat(price) : Number(current.price);
     const categoryVal = category !== undefined ? category : current.category;
     const stockVal = stock !== undefined ? parseInt(stock, 10) : current.stock;
-    const kemitraanVal = kemitraan !== undefined ? (kemitraan || null) : current.kemitraan;
+    const kemitraanVal = kemitraan !== undefined ? normalizeKemitraan(kemitraan) : current.kemitraan;
 
     await db.query(
       `UPDATE products SET name = ?, description = ?, price = ?, image = ?, category = ?, stock = ?, kemitraan = ? WHERE id = ?`,

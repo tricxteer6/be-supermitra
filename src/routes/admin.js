@@ -10,6 +10,7 @@ const {
   getUsers,
   getUserById,
   updateUser,
+  setUserPassword,
   getCsroList,
 } = require("../controllers/adminController");
 const {
@@ -56,6 +57,13 @@ router.delete(
   role(["admin"]),
   requirePermissions(["user:manage"]),
   deleteUser,
+);
+router.put(
+  "/user/:id/password",
+  auth,
+  role(["admin"]),
+  requirePermissions(["user:manage"]),
+  setUserPassword,
 );
 
 // ADMIN ONLY - CSRO list (admin produk)

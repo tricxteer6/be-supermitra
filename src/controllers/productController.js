@@ -11,7 +11,7 @@ exports.getProducts = async (req, res) => {
     const params = [];
 
     if (!isAdmin && kemitraan) {
-      sql += ` WHERE (kemitraan IS NULL OR kemitraan = ?)`;
+      sql += ` WHERE (kemitraan IS NULL OR TRIM(kemitraan) = '' OR FIND_IN_SET(?, REPLACE(TRIM(kemitraan), ' ', '')) > 0)`;
       params.push(kemitraan);
     }
     sql += ` ORDER BY name`;
@@ -38,8 +38,12 @@ exports.getProductById = async (req, res) => {
     const product = rows[0];
     const isAdmin = req.user?.role === "admin";
     const userKemitraan = req.user?.kemitraan || null;
-    if (!isAdmin && userKemitraan && product.kemitraan != null && product.kemitraan !== userKemitraan) {
-      return res.status(403).json({ message: "Produk tidak tersedia untuk kemitraan Anda" });
+    if (!isAdmin && userKemitraan) {
+      const kemStr = (product.kemitraan || "").trim();
+      const allowed = !kemStr || kemStr === "" || kemStr.split(",").map((s) => s.trim()).filter(Boolean).includes(userKemitraan);
+      if (!allowed) {
+        return res.status(403).json({ message: "Produk tidak tersedia untuk kemitraan Anda" });
+      }
     }
     res.json(product);
   } catch (err) {

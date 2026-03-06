@@ -4,6 +4,7 @@ const uploadProfile = require("../middleware/uploadProfileImage");
 const uploadMitraPhotos = require("../middleware/uploadMitraPhotos");
 const {
   getMe,
+  getMyCsroPhone,
   updateMe,
   uploadAvatar,
   uploadPhotos,
@@ -12,6 +13,7 @@ const {
 } = require("../controllers/userController");
 
 router.get("/me", auth, getMe);
+router.get("/me/csro-phone", auth, getMyCsroPhone);
 router.put("/me", auth, updateMe);
 router.put("/me/password", auth, changePassword);
 router.put("/me/avatar", auth, (req, res, next) => {

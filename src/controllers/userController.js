@@ -45,10 +45,29 @@ exports.getMe = async (req, res) => {
     }
     if (!Array.isArray(user.photos)) user.photos = [];
 
-    res.json(user);
+    // Pastikan csro_phone selalu ada di response (untuk WhatsApp order)
+    const csroPhone = user.csro_phone ?? user.CSRO_PHONE ?? null;
+    const payload = { ...user, csro_phone: csroPhone };
+    res.json(payload);
   } catch (err) {
     console.error("GET ME ERROR:", err);
     if (!res.headersSent) res.status(401).json({ message: "Sesi bermasalah. Silakan login lagi." });
+  }
+};
+
+// GET /api/user/me/csro-phone — nomor WA CSRO untuk repeat order (sumber utama link WhatsApp)
+exports.getMyCsroPhone = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const [rows] = await db.query(
+      "SELECT csro_phone FROM users WHERE id = ?",
+      [userId]
+    );
+    const csro_phone = rows.length ? (rows[0].csro_phone ?? rows[0].CSRO_PHONE ?? null) : null;
+    res.json({ csro_phone });
+  } catch (err) {
+    console.error("GET MY CSRO PHONE ERROR:", err);
+    if (!res.headersSent) res.json({ csro_phone: null });
   }
 };
 
@@ -62,6 +81,7 @@ exports.updateMe = async (req, res) => {
       `SELECT 
         nama,
         email,
+        phone,
         alamat,
         kelurahan,
         kecamatan,
@@ -94,6 +114,7 @@ exports.updateMe = async (req, res) => {
     const {
       nama,
       email,
+      phone,
       alamat,
       kelurahan,
       kecamatan,
@@ -111,10 +132,19 @@ exports.updateMe = async (req, res) => {
       photosPayload = Array.isArray(photos) ? photos : currentPhotos;
     }
 
+    let phoneNormalized = null;
+    if (phone != null && String(phone).trim() !== "") {
+      const digits = String(phone).replace(/\D/g, "");
+      if (digits.startsWith("0")) phoneNormalized = "62" + digits.slice(1);
+      else if (!digits.startsWith("62")) phoneNormalized = "62" + digits;
+      else phoneNormalized = digits;
+    }
+
     await db.query(
       `UPDATE users SET
         nama = ?,
         email = ?,
+        phone = ?,
         alamat = ?,
         kelurahan = ?,
         kecamatan = ?,
@@ -131,6 +161,7 @@ exports.updateMe = async (req, res) => {
       [
         nama ?? current.nama,
         email ?? current.email,
+        phoneNormalized ?? current.phone,
         alamat ?? current.alamat,
         kelurahan ?? current.kelurahan,
         kecamatan ?? current.kecamatan,

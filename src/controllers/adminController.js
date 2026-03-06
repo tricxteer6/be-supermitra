@@ -268,6 +268,30 @@ exports.updateUser = async (req, res) => {
       ]
     );
 
+    // Kembalikan data user lengkap agar form tetap terisi setelah simpan
+    const [rows] = await db.query(
+      `SELECT id, nama, email, phone, alamat, kelurahan, kecamatan, kota, provinsi, kode_pos, kemitraan, role, lat, lng, profile_picture, photos, admin_permissions, csro_phone FROM users WHERE id = ?`,
+      [id]
+    );
+    const user = rows[0];
+    if (user) {
+      if (user.photos != null && typeof user.photos === "string") {
+        try {
+          user.photos = JSON.parse(user.photos);
+        } catch {
+          user.photos = [];
+        }
+      }
+      if (!Array.isArray(user.photos)) user.photos = user.photos ?? [];
+      if (user.admin_permissions != null && typeof user.admin_permissions === "string") {
+        try {
+          user.admin_permissions = JSON.parse(user.admin_permissions);
+        } catch {
+          user.admin_permissions = null;
+        }
+      }
+      return res.json(user);
+    }
     res.json({ message: "User berhasil diupdate" });
   } catch (err) {
     console.error("UPDATE USER ERROR:", err);
@@ -287,6 +311,42 @@ exports.deleteUser = async (req, res) => {
     res.json({ message: "User berhasil dihapus" });
   } catch (err) {
     console.error("DELETE USER ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ======================
+// ADMIN SET USER PASSWORD (superadmin / user:manage)
+// ======================
+exports.setUserPassword = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { newPassword } = req.body;
+
+    if (!newPassword || typeof newPassword !== "string") {
+      return res.status(400).json({
+        message: "Password baru wajib diisi",
+      });
+    }
+
+    const trimmed = newPassword.trim();
+    if (trimmed.length < 6) {
+      return res.status(400).json({
+        message: "Password baru minimal 6 karakter",
+      });
+    }
+
+    const [rows] = await db.query("SELECT id FROM users WHERE id = ?", [id]);
+    if (!rows.length) {
+      return res.status(404).json({ message: "User tidak ditemukan" });
+    }
+
+    const hashed = await bcrypt.hash(trimmed, 10);
+    await db.query("UPDATE users SET password = ? WHERE id = ?", [hashed, id]);
+
+    res.json({ message: "Password user berhasil diubah" });
+  } catch (err) {
+    console.error("ADMIN SET USER PASSWORD ERROR:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
