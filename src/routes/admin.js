@@ -27,6 +27,12 @@ const {
   deleteOrder,
   getOrderLocationStats,
 } = require("../controllers/adminOrderController");
+const {
+  getLocationRequests,
+  getLocationRequestsCount,
+  acceptLocationRequest,
+  rejectLocationRequest,
+} = require("../controllers/adminLocationRequestController");
 const cmsController = require("../controllers/cmsController");
 
 // ADMIN ONLY - Users (permission: user:manage)
@@ -80,6 +86,36 @@ router.get(
   role(["admin"]),
   requirePermissions(["user:manage"]),
   getCsroList,
+);
+
+// ADMIN ONLY - Permintaan ubah lokasi mitra (user:manage)
+router.get(
+  "/location-requests",
+  auth,
+  role(["admin"]),
+  requirePermissions(["user:manage"]),
+  getLocationRequests,
+);
+router.get(
+  "/location-requests/count",
+  auth,
+  role(["admin"]),
+  requirePermissions(["user:manage"]),
+  getLocationRequestsCount,
+);
+router.patch(
+  "/location-requests/:id/accept",
+  auth,
+  role(["admin"]),
+  requirePermissions(["user:manage"]),
+  acceptLocationRequest,
+);
+router.patch(
+  "/location-requests/:id/reject",
+  auth,
+  role(["admin"]),
+  requirePermissions(["user:manage"]),
+  rejectLocationRequest,
 );
 
 // ADMIN ONLY - Products CRUD (permission: product:manage)

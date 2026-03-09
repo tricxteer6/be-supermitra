@@ -1,5 +1,6 @@
 const db = require("../config/db");
 const { deleteUploadedFile } = require("../utils/deleteUploadedFile");
+const { getDistanceMeters } = require("../utils/geo");
 const bcrypt = require("bcryptjs");
 
 // GET /api/user/me
@@ -142,6 +143,49 @@ exports.updateMe = async (req, res) => {
       else phoneNormalized = digits;
     }
 
+    const isAdmin = String(current.role || "").toLowerCase() === "admin";
+    const reqLat = lat != null && Number.isFinite(Number(lat)) ? Number(lat) : null;
+    const reqLng = lng != null && Number.isFinite(Number(lng)) ? Number(lng) : null;
+    const currentLat = current.lat != null ? Number(current.lat) : null;
+    const currentLng = current.lng != null ? Number(current.lng) : null;
+    const locationChanged =
+      !isAdmin &&
+      reqLat != null &&
+      reqLng != null &&
+      (currentLat !== reqLat || currentLng !== reqLng);
+
+    let finalLat = current.lat;
+    let finalLng = current.lng;
+
+    if (locationChanged) {
+      // Validasi: titik baru minimal 1 km dari lokasi mitra lain (yang sudah disetujui)
+      const [others] = await db.query(
+        `SELECT id, lat, lng FROM users
+         WHERE lat IS NOT NULL AND lng IS NOT NULL AND id != ? AND role != 'admin'`,
+        [userId]
+      );
+      for (const o of others) {
+        const dist = getDistanceMeters(reqLat, reqLng, o.lat, o.lng);
+        if (dist < 1000) {
+          return res.status(400).json({
+            message: "Lokasi terlalu dekat dengan mitra lain. Minimal jarak 1 km.",
+            conflictLat: o.lat,
+            conflictLng: o.lng,
+            radiusMeters: 1000,
+          });
+        }
+      }
+      await db.query(
+        `INSERT INTO location_requests (user_id, requested_lat, requested_lng, status)
+         VALUES (?, ?, ?, 'pending')`,
+        [userId, reqLat, reqLng]
+      );
+      // Jangan ubah lat/lng user; tetap pakai yang lama sampai admin accept
+    } else {
+      finalLat = lat != null ? Number(lat) : current.lat;
+      finalLng = lng != null ? Number(lng) : current.lng;
+    }
+
     await db.query(
       `UPDATE users SET
         nama = ?,
@@ -172,14 +216,20 @@ exports.updateMe = async (req, res) => {
         kode_pos ?? current.kode_pos,
         current.kemitraan,
         current.role,
-        lat != null ? Number(lat) : current.lat,
-        lng != null ? Number(lng) : current.lng,
+        finalLat,
+        finalLng,
         profile_picture !== undefined ? profile_picture : current.profile_picture,
         JSON.stringify(photosPayload),
         userId,
       ],
     );
 
+    if (locationChanged) {
+      return res.json({
+        message: "Profil disimpan. Permintaan perubahan lokasi menunggu persetujuan admin.",
+        locationRequestSubmitted: true,
+      });
+    }
     res.json({ message: "Profil berhasil diupdate" });
   } catch (err) {
     console.error("UPDATE ME ERROR:", err);
