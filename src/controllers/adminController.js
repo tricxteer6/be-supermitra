@@ -127,13 +127,17 @@ exports.registerUser = async (req, res) => {
 
     const hasLatLng = lat != null && lng != null && Number.isFinite(Number(lat)) && Number.isFinite(Number(lng));
 
-    // ===== CEK JARAK 500M (hanya jika lat/lng diisi dan BUKAN admin) =====
+    // ===== CEK JARAK 500M (hanya jika lat/lng diisi dan BUKAN admin, serta kemitraan sama) =====
     if (!isAdmin && hasLatLng) {
+      const kemitraanStr = kemitraan ? String(kemitraan).trim() : "";
       const [locations] = await db.query(
-        "SELECT id, lat, lng FROM users WHERE lat IS NOT NULL AND lng IS NOT NULL"
+        "SELECT id, lat, lng, kemitraan FROM users WHERE lat IS NOT NULL AND lng IS NOT NULL"
       );
 
       for (const loc of locations) {
+        if (kemitraanStr && String(loc.kemitraan || "").trim() !== kemitraanStr) {
+          continue;
+        }
         const distance = getDistance(lat, lng, loc.lat, loc.lng);
         if (distance < 500) {
           return res.status(400).json({

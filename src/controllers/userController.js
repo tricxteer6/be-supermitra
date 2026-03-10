@@ -160,9 +160,13 @@ exports.updateMe = async (req, res) => {
     if (locationChanged) {
       // Validasi: titik baru minimal 1 km dari lokasi mitra lain (yang sudah disetujui)
       const [others] = await db.query(
-        `SELECT id, lat, lng FROM users
-         WHERE lat IS NOT NULL AND lng IS NOT NULL AND id != ? AND role != 'admin'`,
-        [userId]
+        `SELECT id, lat, lng, kemitraan FROM users
+         WHERE lat IS NOT NULL
+           AND lng IS NOT NULL
+           AND id != ?
+           AND role != 'admin'
+           AND kemitraan = ?`,
+        [userId, current.kemitraan]
       );
       for (const o of others) {
         const dist = getDistanceMeters(reqLat, reqLng, o.lat, o.lng);
