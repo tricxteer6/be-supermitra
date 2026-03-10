@@ -90,9 +90,12 @@ exports.createCourse = async (req, res) => {
 
     const imagePath = req.file ? `/public/course/${req.file.filename}` : null;
 
-    // Konversi is_vip ke 1 atau 0
+    // Konversi is_vip ke 1 atau 0 (dari FormData selalu string)
+    const isVipStr = req.body.is_vip != null ? String(req.body.is_vip).toLowerCase() : "";
     const isVipValue =
-      is_vip === "true" || is_vip === 1 || is_vip === true ? 1 : 0;
+      isVipStr === "true" || isVipStr === "1" || isVipStr === "ya" || is_vip === 1 || is_vip === true
+        ? 1
+        : 0;
 
     await db.query(
       `INSERT INTO courses (title, description, image, instructor, duration, category, embed_url, is_vip)
@@ -129,8 +132,11 @@ exports.updateCourse = async (req, res) => {
       is_vip,
     } = req.body;
 
+    const isVipStr = req.body.is_vip != null ? String(req.body.is_vip).toLowerCase() : "";
     const isVipValue =
-      is_vip === "true" || is_vip === 1 || is_vip === true ? 1 : 0;
+      isVipStr === "true" || isVipStr === "1" || isVipStr === "ya" || is_vip === 1 || is_vip === true
+        ? 1
+        : 0;
 
     let currentImage = null;
     if (req.file) {
