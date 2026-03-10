@@ -16,6 +16,7 @@ exports.getCourses = async (req, res) => {
       ELSE duration
     END AS duration,
     category, 
+    kemitraan,
     embed_url, 
     is_vip AS isVip 
   FROM courses
@@ -46,6 +47,7 @@ exports.getCourseById = async (req, res) => {
       ELSE duration
     END AS duration,
     category,
+    kemitraan,
     embed_url,
     is_vip AS isVip
   FROM courses
@@ -86,6 +88,7 @@ exports.createCourse = async (req, res) => {
       category,
       embed_url,
       is_vip,
+      kemitraan,
     } = req.body;
 
     const imagePath = req.file ? `/public/course/${req.file.filename}` : null;
@@ -98,8 +101,8 @@ exports.createCourse = async (req, res) => {
         : 0;
 
     await db.query(
-      `INSERT INTO courses (title, description, image, instructor, duration, category, embed_url, is_vip)
-       VALUES (?,?,?,?,?,?,?,?)`,
+      `INSERT INTO courses (title, description, image, instructor, duration, category, kemitraan, embed_url, is_vip)
+       VALUES (?,?,?,?,?,?,?,?,?)`,
       [
         title,
         description,
@@ -107,6 +110,7 @@ exports.createCourse = async (req, res) => {
         instructor,
         duration,
         category,
+        kemitraan || null,
         embed_url,
         isVipValue,
       ],
@@ -130,6 +134,7 @@ exports.updateCourse = async (req, res) => {
       category,
       embed_url,
       is_vip,
+      kemitraan,
     } = req.body;
 
     const isVipStr = req.body.is_vip != null ? String(req.body.is_vip).toLowerCase() : "";
@@ -154,6 +159,7 @@ exports.updateCourse = async (req, res) => {
         instructor=?,
         duration=?,
         category=?,
+        kemitraan=?,
         embed_url=?,
         is_vip=?
     `;
@@ -164,6 +170,7 @@ exports.updateCourse = async (req, res) => {
       instructor,
       duration,
       category,
+      kemitraan || null,
       embed_url,
       isVipValue,
     ];
