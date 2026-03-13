@@ -141,6 +141,17 @@ exports.updateMe = async (req, res) => {
       if (digits.startsWith("0")) phoneNormalized = "62" + digits.slice(1);
       else if (!digits.startsWith("62")) phoneNormalized = "62" + digits;
       else phoneNormalized = digits;
+
+      // Pastikan nomor telepon unik (kecuali milik sendiri)
+      const [existingPhone] = await db.query(
+        "SELECT id FROM users WHERE phone = ? AND id <> ? LIMIT 1",
+        [phoneNormalized, userId],
+      );
+      if (existingPhone.length) {
+        return res
+          .status(400)
+          .json({ message: "Nomor telepon sudah digunakan oleh akun lain." });
+      }
     }
 
     const isAdmin = String(current.role || "").toLowerCase() === "admin";

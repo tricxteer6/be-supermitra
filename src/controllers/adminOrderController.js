@@ -1,4 +1,5 @@
 const db = require("../config/db");
+const { createNotification } = require("../utils/notifications");
 
 // Helper: mapping provinsi ke pulau
 const PROVINCE_TO_ISLAND = {
@@ -121,8 +122,8 @@ exports.acceptOrder = async (req, res) => {
     await conn.beginTransaction();
 
     const [orders] = await conn.query(
-      "SELECT id, status FROM orders WHERE id = ? FOR UPDATE",
-      [orderId]
+      "SELECT id, status, user_id FROM orders WHERE id = ? FOR UPDATE",
+      [orderId],
     );
     if (!orders.length) {
       await conn.rollback();
@@ -175,10 +176,23 @@ exports.acceptOrder = async (req, res) => {
       );
     }
 
-    await conn.query("UPDATE orders SET status = 'accepted' WHERE id = ?", [orderId]);
+    await conn.query("UPDATE orders SET status = 'accepted' WHERE id = ?", [
+      orderId,
+    ]);
 
     await conn.commit();
+    const userId = order.user_id;
+
     conn.release();
+
+    if (userId) {
+      createNotification(userId, {
+        type: "order_accepted",
+        title: "Order Anda diterima",
+        message: `Order #${orderId} telah diterima dan akan diproses.`,
+      });
+    }
+
     res.json({ message: "Order diterima" });
   } catch (err) {
     if (conn) {
@@ -199,8 +213,8 @@ exports.rejectOrder = async (req, res) => {
     await conn.beginTransaction();
 
     const [orders] = await conn.query(
-      "SELECT id, status FROM orders WHERE id = ? FOR UPDATE",
-      [orderId]
+      "SELECT id, status, user_id FROM orders WHERE id = ? FOR UPDATE",
+      [orderId],
     );
     if (!orders.length) {
       await conn.rollback();
@@ -214,10 +228,23 @@ exports.rejectOrder = async (req, res) => {
       return res.status(400).json({ message: "Order sudah diproses" });
     }
 
-    await conn.query("UPDATE orders SET status = 'rejected' WHERE id = ?", [orderId]);
+    await conn.query("UPDATE orders SET status = 'rejected' WHERE id = ?", [
+      orderId,
+    ]);
 
     await conn.commit();
+
+    const userId = order.user_id;
+
     conn.release();
+
+    if (userId) {
+      createNotification(userId, {
+        type: "order_rejected",
+        title: "Order Anda ditolak",
+        message: `Order #${orderId} ditolak oleh admin. Silakan hubungi admin untuk informasi lebih lanjut.`,
+      });
+    }
     res.json({ message: "Order ditolak" });
   } catch (err) {
     if (conn) {

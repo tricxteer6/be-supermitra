@@ -152,6 +152,19 @@ exports.registerUser = async (req, res) => {
 
     const phoneNormalized = phone ? normalizePhone(phone) : null;
 
+    // Pastikan nomor telepon unik (jika diisi)
+    if (phoneNormalized) {
+      const [existingPhone] = await db.query(
+        "SELECT id FROM users WHERE phone = ? LIMIT 1",
+        [phoneNormalized],
+      );
+      if (existingPhone.length) {
+        return res.status(400).json({
+          message: "Nomor telepon sudah terdaftar. Gunakan nomor lain.",
+        });
+      }
+    }
+
     // Use empty string for address columns when null so DBs with NOT NULL on these columns accept the insert
     const str = (v) => (v != null && String(v).trim() !== "" ? String(v).trim() : "");
     const kelurahanVal = str(kelurahan);
@@ -255,6 +268,19 @@ exports.updateUser = async (req, res) => {
     }
 
     const phoneNormalized = phone != null && String(phone).trim() !== "" ? normalizePhone(phone) : null;
+
+    // Cek duplikasi phone ketika admin mengubah
+    if (phoneNormalized) {
+      const [existingPhone] = await db.query(
+        "SELECT id FROM users WHERE phone = ? AND id <> ? LIMIT 1",
+        [phoneNormalized, id],
+      );
+      if (existingPhone.length) {
+        return res.status(400).json({
+          message: "Nomor telepon sudah terdaftar untuk user lain.",
+        });
+      }
+    }
 
     let adminPermissionsValue = null;
     if (Array.isArray(admin_permissions)) {

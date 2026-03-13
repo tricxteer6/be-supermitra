@@ -11,6 +11,7 @@ const {
   deletePhoto,
   changePassword,
 } = require("../controllers/userController");
+const notificationController = require("../controllers/notificationController");
 
 router.get("/me", auth, getMe);
 router.get("/me/csro-phone", auth, getMyCsroPhone);
@@ -31,6 +32,19 @@ router.put("/me/avatar", auth, (req, res, next) => {
 }, uploadAvatar);
 router.post("/me/photos", auth, uploadMitraPhotos, uploadPhotos);
 router.delete("/me/photos", auth, deletePhoto);
+
+// Notifications
+router.get("/notifications", auth, notificationController.getMyNotifications);
+router.post(
+  "/notifications/:id/read",
+  auth,
+  notificationController.markAsRead,
+);
+router.post(
+  "/notifications/read-all",
+  auth,
+  notificationController.markAllAsRead,
+);
 
 module.exports = router;
 

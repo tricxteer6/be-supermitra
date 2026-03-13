@@ -1,5 +1,6 @@
 const db = require("../config/db");
 const { getDistanceMeters } = require("../utils/geo");
+const { createNotification } = require("../utils/notifications");
 
 /** GET /admin/location-requests — list permintaan (default: pending), dengan data user */
 exports.getLocationRequests = async (req, res) => {
@@ -72,12 +73,19 @@ exports.acceptLocationRequest = async (req, res) => {
 
     await db.query(
       "UPDATE users SET lat = ?, lng = ? WHERE id = ?",
-      [requested_lat, requested_lng, user_id]
+      [requested_lat, requested_lng, user_id],
     );
     await db.query(
       "UPDATE location_requests SET status = 'accepted', reviewed_at = NOW(), reviewed_by = ? WHERE id = ?",
-      [adminId, id]
+      [adminId, id],
     );
+
+    // Notifikasi ke user
+    createNotification(user_id, {
+      type: "location_accepted",
+      title: "Permintaan ubah lokasi disetujui",
+      message: "Lokasi cabang Anda telah diperbarui oleh admin.",
+    });
 
     res.json({ message: "Permintaan lokasi disetujui" });
   } catch (err) {
@@ -93,17 +101,26 @@ exports.rejectLocationRequest = async (req, res) => {
     const adminId = req.user.id;
 
     const [rows] = await db.query(
-      "SELECT id FROM location_requests WHERE id = ? AND status = 'pending'",
-      [id]
+      "SELECT id, user_id FROM location_requests WHERE id = ? AND status = 'pending'",
+      [id],
     );
     if (!rows || rows.length === 0) {
       return res.status(404).json({ message: "Permintaan tidak ditemukan atau sudah diproses" });
     }
 
+    const { user_id } = rows[0];
     await db.query(
       "UPDATE location_requests SET status = 'rejected', reviewed_at = NOW(), reviewed_by = ? WHERE id = ?",
-      [adminId, id]
+      [adminId, id],
     );
+
+    createNotification(user_id, {
+      type: "location_rejected",
+      title: "Permintaan ubah lokasi ditolak",
+      message:
+        "Permintaan ubah lokasi Anda ditolak oleh admin. Silakan hubungi admin jika membutuhkan bantuan.",
+    });
+
     res.json({ message: "Permintaan lokasi ditolak" });
   } catch (err) {
     console.error("rejectLocationRequest error:", err);
