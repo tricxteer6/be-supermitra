@@ -297,6 +297,9 @@ exports.updateUser = async (req, res) => {
       }
     }
 
+    // Kolom alamat/alamat-related di DB bisa NOT NULL → pakai string kosong, jangan NULL
+    const strOrEmpty = (v) => (v != null && String(v).trim() !== "" ? String(v).trim() : "");
+
     // ===== UPDATE =====
     await db.query(
       `UPDATE users SET
@@ -322,12 +325,12 @@ exports.updateUser = async (req, res) => {
         nama,
         email,
         phoneNormalized,
-        alamat || null,
-        kelurahan || null,
-        kecamatan || null,
-        kota || null,
-        provinsi || null,
-        kode_pos || null,
+        strOrEmpty(alamat),
+        strOrEmpty(kelurahan),
+        strOrEmpty(kecamatan),
+        strOrEmpty(kota),
+        strOrEmpty(provinsi),
+        strOrEmpty(kode_pos),
         role,
         kemitraan,
         lat != null ? Number(lat) : null,
