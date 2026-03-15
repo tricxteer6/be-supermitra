@@ -127,15 +127,18 @@ exports.registerUser = async (req, res) => {
 
     const hasLatLng = lat != null && lng != null && Number.isFinite(Number(lat)) && Number.isFinite(Number(lng));
 
-    // ===== CEK JARAK 500M (hanya jika lat/lng diisi dan BUKAN admin, serta kemitraan sama) =====
+    // ===== CEK JARAK 500M (hanya jika lat/lng diisi dan BUKAN admin, serta punya kemitraan yang sama) =====
     if (!isAdmin && hasLatLng) {
-      const kemitraanStr = kemitraan ? String(kemitraan).trim() : "";
+      const newKems = (kemitraan ? String(kemitraan).trim() : "")
+        .split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
       const [locations] = await db.query(
         "SELECT id, lat, lng, kemitraan FROM users WHERE lat IS NOT NULL AND lng IS NOT NULL"
       );
 
       for (const loc of locations) {
-        if (kemitraanStr && String(loc.kemitraan || "").trim() !== kemitraanStr) {
+        const locKems = String(loc.kemitraan || "").trim().split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+        const hasOverlap = newKems.length && locKems.length && newKems.some((k) => locKems.includes(k));
+        if (newKems.length && !hasOverlap) {
           continue;
         }
         const distance = getDistance(lat, lng, loc.lat, loc.lng);

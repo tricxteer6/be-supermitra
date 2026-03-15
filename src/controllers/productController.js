@@ -1,13 +1,15 @@
 const db = require("../config/db");
 
-/** Cek apakah produk boleh dilihat user (kemitraan produk kosong = semua; isi = user harus ada di list; case-insensitive + trim) */
+/** Cek apakah produk boleh dilihat user (kemitraan produk kosong = semua; isi = user harus punya minimal satu kemitraan di list; user boleh punya 2 kemitraan dipisah koma) */
 function productAllowedForKemitraan(productKemitraanStr, userKemitraan) {
   const kem = (productKemitraanStr ?? "").toString().trim();
   if (!kem) return true;
-  const user = (userKemitraan ?? "").toString().trim().toLowerCase();
-  if (!user) return true;
-  const list = kem.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
-  return list.includes(user);
+  const userRaw = (userKemitraan ?? "").toString().trim();
+  if (!userRaw) return true;
+  const productList = kem.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+  const userKems = userRaw.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+  if (userKems.length === 0) return true;
+  return userKems.some((uk) => productList.includes(uk));
 }
 
 /** User-facing: list products (filter by user kemitraan when set) */
