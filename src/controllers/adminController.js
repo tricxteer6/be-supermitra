@@ -78,10 +78,12 @@ exports.registerUser = async (req, res) => {
 
     const roleLower = String(role || "").toLowerCase();
 
-    // ===== VALIDASI DASAR: nama, email, password, role selalu wajib =====
-    if (!nama || !email || !password || !roleLower) {
+    // ===== VALIDASI DASAR: nama, password, role wajib; minimal salah satu dari email / phone wajib =====
+    const hasEmail = email != null && String(email).trim() !== "";
+    const hasPhone = phone != null && String(phone).trim() !== "";
+    if (!nama || !password || !roleLower || (!hasEmail && !hasPhone)) {
       return res.status(400).json({
-        message: "Nama, email, password, dan role wajib diisi",
+        message: "Nama, password, role, dan minimal salah satu dari email atau nomor telepon wajib diisi",
       });
     }
 
@@ -115,14 +117,16 @@ exports.registerUser = async (req, res) => {
       }
     }
 
-    // ===== CEK EMAIL DUPLIKAT =====
-    const [existing] = await db.query(
-      "SELECT id FROM users WHERE email = ?",
-      [email]
-    );
+    // ===== CEK EMAIL DUPLIKAT (jika email diisi) =====
+    if (hasEmail) {
+      const [existing] = await db.query(
+        "SELECT id FROM users WHERE email = ?",
+        [email]
+      );
 
-    if (existing.length > 0) {
-      return res.status(400).json({ message: "Email sudah terdaftar" });
+      if (existing.length > 0) {
+        return res.status(400).json({ message: "Email sudah terdaftar" });
+      }
     }
 
     const hasLatLng = lat != null && lng != null && Number.isFinite(Number(lat)) && Number.isFinite(Number(lng));
