@@ -11,6 +11,24 @@ function normalizePhone(phone) {
   return digits;
 }
 
+function toDateOrNull(value) {
+  if (value == null || String(value).trim() === "") return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+
+  // Excel serial date (mis. 45234)
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const epoch = new Date(Date.UTC(1899, 11, 30));
+    const ms = Math.round(value * 24 * 60 * 60 * 1000);
+    const d = new Date(epoch.getTime() + ms);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  const s = String(value).trim();
+  if (!s || s.toLowerCase() === "nan-nan-nan" || s === "-") return null;
+  const parsed = new Date(s);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 // ======================
 // HELPER: HITUNG JARAK (HAVERSINE)
 // ======================
@@ -198,7 +216,8 @@ exports.registerUser = async (req, res) => {
     }
 
     // ===== HITUNG TANGGAL JOIN & MITRA_ID =====
-    const joinDate = mitra_join_date ? new Date(mitra_join_date) : new Date();
+    // Jika tanggal dari Excel tidak valid, fallback ke tanggal hari ini
+    const joinDate = toDateOrNull(mitra_join_date) || new Date();
     const joinDateStr = `${joinDate.getFullYear()}-${String(joinDate.getMonth() + 1).padStart(
       2,
       "0"
