@@ -27,6 +27,9 @@ const allowedOrigins = [
   "https://www.supermitra.masterkuliner.com",
   "https://masterkuliner.com",
   "https://www.masterkuliner.com",
+  // Dev origin (Expo web / Metro)
+  "http://localhost:8081",
+  "http://127.0.0.1:8081",
   "http://localhost:5173",
   "http://127.0.0.1:5173",
   ...envOrigins,

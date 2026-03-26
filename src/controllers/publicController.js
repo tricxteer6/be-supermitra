@@ -1,7 +1,106 @@
 const db = require("../config/db");
 
+function provincesByIsland(pulau) {
+  const key = String(pulau || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+
+  const SUMATERA = [
+    "Aceh",
+    "Sumatera Utara",
+    "Sumatera Barat",
+    "Riau",
+    "Jambi",
+    "Sumatera Selatan",
+    "Bengkulu",
+    "Lampung",
+    "Kepulauan Bangka Belitung",
+    "Kepulauan Riau",
+  ];
+  const JAWA = [
+    "Banten",
+    "DKI Jakarta",
+    "Jawa Barat",
+    "Jawa Tengah",
+    "DI Yogyakarta",
+    "Jawa Timur",
+  ];
+  const KALIMANTAN = [
+    "Kalimantan Barat",
+    "Kalimantan Tengah",
+    "Kalimantan Selatan",
+    "Kalimantan Timur",
+    "Kalimantan Utara",
+  ];
+  const SULAWESI = [
+    "Sulawesi Utara",
+    "Sulawesi Tengah",
+    "Sulawesi Selatan",
+    "Sulawesi Tenggara",
+    "Gorontalo",
+    "Sulawesi Barat",
+  ];
+  const BALI_NUSA = ["Bali", "Nusa Tenggara Barat", "Nusa Tenggara Timur"];
+  const MALUKU = ["Maluku", "Maluku Utara"];
+  const PAPUA = [
+    "Papua",
+    "Papua Barat",
+    "Papua Barat Daya",
+    "Papua Selatan",
+    "Papua Tengah",
+  ];
+
+  if (!key) return null;
+  if (key.includes("sumatera")) return SUMATERA;
+  if (key.includes("jawa")) return JAWA;
+  if (key.includes("kalimantan") || key.includes("borneo")) return KALIMANTAN;
+  if (key.includes("sulawesi") || key.includes("celebes")) return SULAWESI;
+  if (key.includes("bali") || key.includes("nusa tenggara") || key.includes("ntb") || key.includes("ntt")) return BALI_NUSA;
+  if (key.includes("maluku")) return MALUKU;
+  if (key.includes("papua")) return PAPUA;
+  return null;
+}
+
 exports.getPublicUsers = async (req, res) => {
   try {
+    const { pulau, provinsi, kota, kecamatan, kelurahan } = req.query || {};
+    const limitRaw = req.query?.limit;
+    const limit = limitRaw != null ? parseInt(limitRaw, 10) : null;
+
+    const conditions = ["role != 'admin'", "lat IS NOT NULL", "lng IS NOT NULL"];
+    const params = [];
+
+    // Filter by island (mapping -> list of provinces)
+    if (pulau) {
+      const provList = provincesByIsland(pulau);
+      if (Array.isArray(provList) && provList.length) {
+        conditions.push(`provinsi IN (${provList.map(() => "?").join(",")})`);
+        params.push(...provList);
+      }
+    }
+
+    if (provinsi) {
+      conditions.push("provinsi = ?");
+      params.push(provinsi);
+    }
+    if (kota) {
+      conditions.push("kota = ?");
+      params.push(kota);
+    }
+    if (kecamatan) {
+      conditions.push("kecamatan = ?");
+      params.push(kecamatan);
+    }
+    if (kelurahan) {
+      conditions.push("kelurahan = ?");
+      params.push(kelurahan);
+    }
+
+    const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+    const limitClause = Number.isFinite(limit) && limit > 0 ? `LIMIT ?` : "";
+    if (limitClause) params.push(limit);
+
     const [users] = await db.query(`
       SELECT 
         id,
@@ -13,15 +112,113 @@ exports.getPublicUsers = async (req, res) => {
         lng,
         profile_picture
       FROM users
-      WHERE 
-        role != 'admin'
-        AND lat IS NOT NULL
-        AND lng IS NOT NULL
-    `);
+      ${where}
+      ORDER BY id DESC
+      ${limitClause}
+    `, params);
     return res.json(Array.isArray(users) ? users : []);
   } catch (err) {
     console.error("PUBLIC USERS ERROR:", err);
     if (!res.headersSent) res.status(200).json([]);
+  }
+};
+
+function buildDistinctQuery(field, conditions, params) {
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const [rows] = await db.query(
+    `
+    SELECT DISTINCT ${field} as value
+    FROM users
+    ${where}
+    AND ${field} IS NOT NULL
+    AND TRIM(${field}) <> ''
+    ORDER BY ${field} ASC
+    `,
+    params,
+  );
+  return rows.map((r) => r.value).filter(Boolean);
+}
+
+exports.getPublicProvinces = async (req, res) => {
+  try {
+    const { pulau } = req.query || {};
+    const conditions = ["role != 'admin'", "lat IS NOT NULL", "lng IS NOT NULL"];
+    const params = [];
+    if (pulau) {
+      const provList = provincesByIsland(pulau);
+      if (Array.isArray(provList) && provList.length) {
+        conditions.push(`provinsi IN (${provList.map(() => "?").join(",")})`);
+        params.push(...provList);
+      }
+    }
+    const values = await buildDistinctQuery("provinsi", conditions, params);
+    res.json(values);
+  } catch (err) {
+    console.error("PUBLIC PROVINCES ERROR:", err);
+    res.json([]);
+  }
+};
+
+exports.getPublicCities = async (req, res) => {
+  try {
+    const { provinsi } = req.query || {};
+    const conditions = ["role != 'admin'", "lat IS NOT NULL", "lng IS NOT NULL"];
+    const params = [];
+    if (provinsi) {
+      conditions.push("provinsi = ?");
+      params.push(provinsi);
+    }
+    const values = await buildDistinctQuery("kota", conditions, params);
+    res.json(values);
+  } catch (err) {
+    console.error("PUBLIC CITIES ERROR:", err);
+    res.json([]);
+  }
+};
+
+exports.getPublicDistricts = async (req, res) => {
+  try {
+    const { provinsi, kota } = req.query || {};
+    const conditions = ["role != 'admin'", "lat IS NOT NULL", "lng IS NOT NULL"];
+    const params = [];
+    if (provinsi) {
+      conditions.push("provinsi = ?");
+      params.push(provinsi);
+    }
+    if (kota) {
+      conditions.push("kota = ?");
+      params.push(kota);
+    }
+    const values = await buildDistinctQuery("kecamatan", conditions, params);
+    res.json(values);
+  } catch (err) {
+    console.error("PUBLIC DISTRICTS ERROR:", err);
+    res.json([]);
+  }
+};
+
+exports.getPublicVillages = async (req, res) => {
+  try {
+    const { provinsi, kota, kecamatan } = req.query || {};
+    const conditions = ["role != 'admin'", "lat IS NOT NULL", "lng IS NOT NULL"];
+    const params = [];
+    if (provinsi) {
+      conditions.push("provinsi = ?");
+      params.push(provinsi);
+    }
+    if (kota) {
+      conditions.push("kota = ?");
+      params.push(kota);
+    }
+    if (kecamatan) {
+      conditions.push("kecamatan = ?");
+      params.push(kecamatan);
+    }
+    const values = await buildDistinctQuery("kelurahan", conditions, params);
+    res.json(values);
+  } catch (err) {
+    console.error("PUBLIC VILLAGES ERROR:", err);
+    res.json([]);
   }
 };
 

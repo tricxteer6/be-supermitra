@@ -14,6 +14,12 @@ const safeJsonList = (fn) => (req, res, next) => {
 router.get("/users", safeJsonList(publicController.getPublicUsers));
 router.get("/users/:id", publicController.getPublicUserById);
 
+// Public locations (distinct)
+router.get("/locations/provinsi", publicController.getPublicProvinces);
+router.get("/locations/kota", publicController.getPublicCities);
+router.get("/locations/kecamatan", publicController.getPublicDistricts);
+router.get("/locations/kelurahan", publicController.getPublicVillages);
+
 // Public CMS content
 router.get("/content/:type", safeJsonList(cmsController.publicList));
 
