@@ -12,6 +12,7 @@ const safeJsonList = (fn) => (req, res, next) => {
 };
 
 router.get("/users", safeJsonList(publicController.getPublicUsers));
+router.get("/users-summary", publicController.getPublicUsersSummary);
 router.get("/users/:id", publicController.getPublicUserById);
 
 // Public locations (distinct)
