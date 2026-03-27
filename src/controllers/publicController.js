@@ -151,12 +151,14 @@ exports.getPublicUsers = async (req, res) => {
             AVG(lat) AS lat,
             AVG(lng) AS lng,
             NULL AS profile_picture,
+            MIN(sample_user_id) AS sample_user_id,
             COUNT(*) AS total,
             1 AS is_aggregate,
             'pulau' AS level
           FROM (
             SELECT
               ${islandExpr} AS island,
+              id AS sample_user_id,
               lat,
               lng
             FROM users
@@ -177,6 +179,7 @@ exports.getPublicUsers = async (req, res) => {
             AVG(lat) AS lat,
             AVG(lng) AS lng,
             NULL AS profile_picture,
+            MIN(id) AS sample_user_id,
             COUNT(*) AS total,
             1 AS is_aggregate,
             'provinsi' AS level
@@ -197,6 +200,7 @@ exports.getPublicUsers = async (req, res) => {
             AVG(lat) AS lat,
             AVG(lng) AS lng,
             NULL AS profile_picture,
+            MIN(id) AS sample_user_id,
             COUNT(*) AS total,
             1 AS is_aggregate,
             'kota' AS level
@@ -217,6 +221,7 @@ exports.getPublicUsers = async (req, res) => {
             AVG(lat) AS lat,
             AVG(lng) AS lng,
             NULL AS profile_picture,
+            MIN(id) AS sample_user_id,
             COUNT(*) AS total,
             1 AS is_aggregate,
             'kecamatan' AS level
@@ -237,6 +242,7 @@ exports.getPublicUsers = async (req, res) => {
             AVG(lat) AS lat,
             AVG(lng) AS lng,
             NULL AS profile_picture,
+            MIN(id) AS sample_user_id,
             COUNT(*) AS total,
             1 AS is_aggregate,
             'kelurahan' AS level
@@ -258,6 +264,7 @@ exports.getPublicUsers = async (req, res) => {
           lat,
           lng,
           profile_picture,
+          id AS sample_user_id,
           1 AS total,
           0 AS is_aggregate,
           'mitra' AS level
