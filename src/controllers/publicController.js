@@ -62,9 +62,36 @@ function provincesByIsland(pulau) {
   return null;
 }
 
+function islandCaseSql() {
+  return `
+    CASE
+      WHEN provinsi IN ('Aceh','Sumatera Utara','Sumatera Barat','Riau','Jambi','Sumatera Selatan','Bengkulu','Lampung','Kepulauan Bangka Belitung','Kepulauan Riau') THEN 'Sumatera'
+      WHEN provinsi IN ('Banten','DKI Jakarta','Jawa Barat','Jawa Tengah','DI Yogyakarta','Jawa Timur') THEN 'Jawa'
+      WHEN provinsi IN ('Kalimantan Barat','Kalimantan Tengah','Kalimantan Selatan','Kalimantan Timur','Kalimantan Utara') THEN 'Kalimantan'
+      WHEN provinsi IN ('Sulawesi Utara','Sulawesi Tengah','Sulawesi Selatan','Sulawesi Tenggara','Gorontalo','Sulawesi Barat') THEN 'Sulawesi'
+      WHEN provinsi IN ('Bali','Nusa Tenggara Barat','Nusa Tenggara Timur') THEN 'Bali & Nusa Tenggara'
+      WHEN provinsi IN ('Maluku','Maluku Utara') THEN 'Maluku'
+      WHEN provinsi IN ('Papua','Papua Barat','Papua Barat Daya','Papua Selatan','Papua Tengah') THEN 'Papua'
+      ELSE 'Lainnya'
+    END
+  `;
+}
+
 exports.getPublicUsers = async (req, res) => {
   try {
-    const { pulau, provinsi, kota, kecamatan, kelurahan } = req.query || {};
+    const {
+      pulau,
+      provinsi,
+      kota,
+      kecamatan,
+      kelurahan,
+      aggregate,
+      level,
+      minLat,
+      maxLat,
+      minLng,
+      maxLng,
+    } = req.query || {};
     const limitRaw = req.query?.limit;
     const limit = limitRaw != null ? parseInt(limitRaw, 10) : null;
 
@@ -96,26 +123,147 @@ exports.getPublicUsers = async (req, res) => {
       conditions.push("kelurahan = ?");
       params.push(kelurahan);
     }
+    if (minLat != null && maxLat != null) {
+      conditions.push("lat BETWEEN ? AND ?");
+      params.push(Number(minLat), Number(maxLat));
+    }
+    if (minLng != null && maxLng != null) {
+      conditions.push("lng BETWEEN ? AND ?");
+      params.push(Number(minLng), Number(maxLng));
+    }
 
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     const limitClause = Number.isFinite(limit) && limit > 0 ? `LIMIT ?` : "";
-    if (limitClause) params.push(limit);
+    const doAggregate = String(aggregate || "0") === "1";
+    const lvl = String(level || "provinsi").toLowerCase();
+    let sql = "";
 
-    const [users] = await db.query(`
-      SELECT 
-        id,
-        nama,
-        kota,
-        provinsi,
-        kemitraan,
-        lat,
-        lng,
-        profile_picture
-      FROM users
-      ${where}
-      ORDER BY id DESC
-      ${limitClause}
-    `, params);
+    if (doAggregate) {
+      const islandExpr = islandCaseSql();
+      if (lvl === "pulau") {
+        sql = `
+          SELECT
+            CONCAT('pulau-', ${islandExpr}) AS id,
+            ${islandExpr} AS nama,
+            NULL AS kota,
+            NULL AS provinsi,
+            NULL AS kemitraan,
+            AVG(lat) AS lat,
+            AVG(lng) AS lng,
+            NULL AS profile_picture,
+            COUNT(*) AS total,
+            1 AS is_aggregate,
+            'pulau' AS level
+          FROM users
+          ${where}
+          GROUP BY ${islandExpr}
+          ORDER BY total DESC
+          ${limitClause}
+        `;
+      } else if (lvl === "provinsi") {
+        sql = `
+          SELECT
+            CONCAT('prov-', provinsi) AS id,
+            provinsi AS nama,
+            NULL AS kota,
+            provinsi,
+            NULL AS kemitraan,
+            AVG(lat) AS lat,
+            AVG(lng) AS lng,
+            NULL AS profile_picture,
+            COUNT(*) AS total,
+            1 AS is_aggregate,
+            'provinsi' AS level
+          FROM users
+          ${where}
+          GROUP BY provinsi
+          ORDER BY total DESC
+          ${limitClause}
+        `;
+      } else if (lvl === "kota") {
+        sql = `
+          SELECT
+            CONCAT('kota-', provinsi, '-', kota) AS id,
+            kota AS nama,
+            kota,
+            provinsi,
+            NULL AS kemitraan,
+            AVG(lat) AS lat,
+            AVG(lng) AS lng,
+            NULL AS profile_picture,
+            COUNT(*) AS total,
+            1 AS is_aggregate,
+            'kota' AS level
+          FROM users
+          ${where}
+          GROUP BY provinsi, kota
+          ORDER BY total DESC
+          ${limitClause}
+        `;
+      } else if (lvl === "kecamatan") {
+        sql = `
+          SELECT
+            CONCAT('kec-', provinsi, '-', kota, '-', kecamatan) AS id,
+            kecamatan AS nama,
+            kota,
+            provinsi,
+            NULL AS kemitraan,
+            AVG(lat) AS lat,
+            AVG(lng) AS lng,
+            NULL AS profile_picture,
+            COUNT(*) AS total,
+            1 AS is_aggregate,
+            'kecamatan' AS level
+          FROM users
+          ${where}
+          GROUP BY provinsi, kota, kecamatan
+          ORDER BY total DESC
+          ${limitClause}
+        `;
+      } else {
+        sql = `
+          SELECT
+            CONCAT('kel-', provinsi, '-', kota, '-', kecamatan, '-', kelurahan) AS id,
+            kelurahan AS nama,
+            kota,
+            provinsi,
+            NULL AS kemitraan,
+            AVG(lat) AS lat,
+            AVG(lng) AS lng,
+            NULL AS profile_picture,
+            COUNT(*) AS total,
+            1 AS is_aggregate,
+            'kelurahan' AS level
+          FROM users
+          ${where}
+          GROUP BY provinsi, kota, kecamatan, kelurahan
+          ORDER BY total DESC
+          ${limitClause}
+        `;
+      }
+    } else {
+      sql = `
+        SELECT 
+          id,
+          nama,
+          kota,
+          provinsi,
+          kemitraan,
+          lat,
+          lng,
+          profile_picture,
+          1 AS total,
+          0 AS is_aggregate,
+          'mitra' AS level
+        FROM users
+        ${where}
+        ORDER BY id DESC
+        ${limitClause}
+      `;
+    }
+
+    if (limitClause) params.push(limit);
+    const [users] = await db.query(sql, params);
     return res.json(Array.isArray(users) ? users : []);
   } catch (err) {
     console.error("PUBLIC USERS ERROR:", err);
@@ -123,8 +271,8 @@ exports.getPublicUsers = async (req, res) => {
   }
 };
 
-function buildDistinctQuery(field, conditions, params) {
-  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+async function buildDistinctQuery(field, conditions, params) {
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "WHERE 1=1";
   const [rows] = await db.query(
     `
     SELECT DISTINCT ${field} as value
