@@ -143,8 +143,8 @@ exports.getPublicUsers = async (req, res) => {
       if (lvl === "pulau") {
         sql = `
           SELECT
-            CONCAT('pulau-', ${islandExpr}) AS id,
-            ${islandExpr} AS nama,
+            CONCAT('pulau-', island) AS id,
+            island AS nama,
             NULL AS kota,
             NULL AS provinsi,
             NULL AS kemitraan,
@@ -154,9 +154,15 @@ exports.getPublicUsers = async (req, res) => {
             COUNT(*) AS total,
             1 AS is_aggregate,
             'pulau' AS level
-          FROM users
-          ${where}
-          GROUP BY ${islandExpr}
+          FROM (
+            SELECT
+              ${islandExpr} AS island,
+              lat,
+              lng
+            FROM users
+            ${where}
+          ) t
+          GROUP BY island
           ORDER BY total DESC
           ${limitClause}
         `;
