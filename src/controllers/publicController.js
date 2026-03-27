@@ -370,6 +370,75 @@ exports.getPublicVillages = async (req, res) => {
   }
 };
 
+exports.getPublicUsersSummary = async (req, res) => {
+  try {
+    const { pulau, provinsi, kota, kecamatan, kelurahan, minLat, maxLat, minLng, maxLng } = req.query || {};
+    const conditions = ["role != 'admin'", "lat IS NOT NULL", "lng IS NOT NULL"];
+    const params = [];
+
+    if (pulau) {
+      const provList = provincesByIsland(pulau);
+      if (Array.isArray(provList) && provList.length) {
+        conditions.push(`provinsi IN (${provList.map(() => "?").join(",")})`);
+        params.push(...provList);
+      }
+    }
+    if (provinsi) {
+      conditions.push("provinsi = ?");
+      params.push(provinsi);
+    }
+    if (kota) {
+      conditions.push("kota = ?");
+      params.push(kota);
+    }
+    if (kecamatan) {
+      conditions.push("kecamatan = ?");
+      params.push(kecamatan);
+    }
+    if (kelurahan) {
+      conditions.push("kelurahan = ?");
+      params.push(kelurahan);
+    }
+    if (minLat != null && maxLat != null) {
+      conditions.push("lat BETWEEN ? AND ?");
+      params.push(Number(minLat), Number(maxLat));
+    }
+    if (minLng != null && maxLng != null) {
+      conditions.push("lng BETWEEN ? AND ?");
+      params.push(Number(minLng), Number(maxLng));
+    }
+
+    const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+    const [rows] = await db.query(
+      `
+      SELECT id, kemitraan
+      FROM users
+      ${where}
+      `,
+      params,
+    );
+
+    const categoryCount = {};
+    for (const r of rows) {
+      const list = String(r.kemitraan || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      for (const cat of list) {
+        categoryCount[cat] = (categoryCount[cat] || 0) + 1;
+      }
+    }
+
+    res.json({
+      total: rows.length,
+      categoryCount,
+    });
+  } catch (err) {
+    console.error("PUBLIC USERS SUMMARY ERROR:", err);
+    res.json({ total: 0, categoryCount: {} });
+  }
+};
+
 exports.getPublicUserById = async (req, res) => {
   try {
     const id = req.params.id;
