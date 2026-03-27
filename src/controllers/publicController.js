@@ -85,6 +85,8 @@ exports.getPublicUsers = async (req, res) => {
       kota,
       kecamatan,
       kelurahan,
+      kemitraan,
+      q,
       aggregate,
       level,
       minLat,
@@ -122,6 +124,17 @@ exports.getPublicUsers = async (req, res) => {
     if (kelurahan) {
       conditions.push("kelurahan = ?");
       params.push(kelurahan);
+    }
+    if (kemitraan) {
+      conditions.push("FIND_IN_SET(?, REPLACE(IFNULL(kemitraan,''), ' ', '')) > 0");
+      params.push(String(kemitraan).trim());
+    }
+    if (q != null && String(q).trim() !== "") {
+      const keyword = `%${String(q).trim()}%`;
+      conditions.push(
+        "(nama LIKE ? OR kota LIKE ? OR provinsi LIKE ? OR kecamatan LIKE ? OR kelurahan LIKE ? OR kemitraan LIKE ?)"
+      );
+      params.push(keyword, keyword, keyword, keyword, keyword, keyword);
     }
     if (minLat != null && maxLat != null) {
       conditions.push("lat BETWEEN ? AND ?");
