@@ -271,6 +271,8 @@ exports.getPublicUsers = async (req, res) => {
         SELECT 
           id,
           nama,
+          kecamatan,
+          kelurahan,
           kota,
           provinsi,
           kemitraan,
