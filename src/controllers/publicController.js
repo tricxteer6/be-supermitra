@@ -67,12 +67,12 @@ function provincesByIsland(pulau) {
 function islandCaseSql() {
   return `
     CASE
-      WHEN provinsi IN ('Aceh','Sumatera Utara','Sumatera Barat','Riau','Jambi','Sumatera Selatan','Bengkulu','Lampung','Kepulauan Bangka Belitung','Kepulauan Riau') THEN 'Sumatera'
-      WHEN provinsi IN ('Banten','DKI Jakarta','Jawa Barat','Jawa Tengah','DI Yogyakarta','Jawa Timur','Bali','Nusa Tenggara Barat','Nusa Tenggara Timur') THEN 'Jawa'
-      WHEN provinsi IN ('Kalimantan Barat','Kalimantan Tengah','Kalimantan Selatan','Kalimantan Timur','Kalimantan Utara') THEN 'Kalimantan'
-      WHEN provinsi IN ('Sulawesi Utara','Sulawesi Tengah','Sulawesi Selatan','Sulawesi Tenggara','Gorontalo','Sulawesi Barat') THEN 'Sulawesi'
-      WHEN provinsi IN ('Maluku','Maluku Utara') THEN 'Maluku'
-      WHEN provinsi IN ('Papua','Papua Barat','Papua Barat Daya','Papua Pegunungan','Papua Selatan','Papua Tengah') THEN 'Papua'
+      WHEN UPPER(TRIM(IFNULL(provinsi,''))) IN ('ACEH','SUMATERA UTARA','SUMATERA BARAT','RIAU','JAMBI','SUMATERA SELATAN','BENGKULU','LAMPUNG','KEPULAUAN BANGKA BELITUNG','KEPULAUAN RIAU') THEN 'Sumatera'
+      WHEN UPPER(TRIM(IFNULL(provinsi,''))) IN ('BANTEN','DKI JAKARTA','JAWA BARAT','JAWA TENGAH','DI YOGYAKARTA','JAWA TIMUR','BALI','NUSA TENGGARA BARAT','NUSA TENGGARA TIMUR') THEN 'Jawa'
+      WHEN UPPER(TRIM(IFNULL(provinsi,''))) IN ('KALIMANTAN BARAT','KALIMANTAN TENGAH','KALIMANTAN SELATAN','KALIMANTAN TIMUR','KALIMANTAN UTARA') THEN 'Kalimantan'
+      WHEN UPPER(TRIM(IFNULL(provinsi,''))) IN ('SULAWESI UTARA','SULAWESI TENGAH','SULAWESI SELATAN','SULAWESI TENGGARA','GORONTALO','SULAWESI BARAT') THEN 'Sulawesi'
+      WHEN UPPER(TRIM(IFNULL(provinsi,''))) IN ('MALUKU','MALUKU UTARA') THEN 'Maluku'
+      WHEN UPPER(TRIM(IFNULL(provinsi,''))) IN ('PAPUA','PAPUA BARAT','PAPUA BARAT DAYA','PAPUA PEGUNUNGAN','PAPUA SELATAN','PAPUA TENGAH') THEN 'Papua'
       ELSE 'Lainnya'
     END
   `;
