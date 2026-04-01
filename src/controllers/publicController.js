@@ -47,6 +47,7 @@ function provincesByIsland(pulau) {
     "Papua",
     "Papua Barat",
     "Papua Barat Daya",
+    "Papua Pegunungan",
     "Papua Selatan",
     "Papua Tengah",
   ];
@@ -71,7 +72,7 @@ function islandCaseSql() {
       WHEN provinsi IN ('Sulawesi Utara','Sulawesi Tengah','Sulawesi Selatan','Sulawesi Tenggara','Gorontalo','Sulawesi Barat') THEN 'Sulawesi'
       WHEN provinsi IN ('Bali','Nusa Tenggara Barat','Nusa Tenggara Timur') THEN 'Bali & Nusa Tenggara'
       WHEN provinsi IN ('Maluku','Maluku Utara') THEN 'Maluku'
-      WHEN provinsi IN ('Papua','Papua Barat','Papua Barat Daya','Papua Selatan','Papua Tengah') THEN 'Papua'
+      WHEN provinsi IN ('Papua','Papua Barat','Papua Barat Daya','Papua Pegunungan','Papua Selatan','Papua Tengah') THEN 'Papua'
       ELSE 'Lainnya'
     END
   `;
