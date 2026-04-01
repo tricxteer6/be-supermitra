@@ -42,6 +42,7 @@ function provincesByIsland(pulau) {
     "Sulawesi Barat",
   ];
   const BALI_NUSA = ["Bali", "Nusa Tenggara Barat", "Nusa Tenggara Timur"];
+  const JAWA_EXTENDED = [...JAWA, ...BALI_NUSA];
   const MALUKU = ["Maluku", "Maluku Utara"];
   const PAPUA = [
     "Papua",
@@ -54,10 +55,10 @@ function provincesByIsland(pulau) {
 
   if (!key) return null;
   if (key.includes("sumatera")) return SUMATERA;
-  if (key.includes("jawa")) return JAWA;
+  if (key.includes("jawa")) return JAWA_EXTENDED;
   if (key.includes("kalimantan") || key.includes("borneo")) return KALIMANTAN;
   if (key.includes("sulawesi") || key.includes("celebes")) return SULAWESI;
-  if (key.includes("bali") || key.includes("nusa tenggara") || key.includes("ntb") || key.includes("ntt")) return BALI_NUSA;
+  if (key.includes("bali") || key.includes("nusa tenggara") || key.includes("ntb") || key.includes("ntt")) return JAWA_EXTENDED;
   if (key.includes("maluku")) return MALUKU;
   if (key.includes("papua")) return PAPUA;
   return null;
@@ -67,10 +68,9 @@ function islandCaseSql() {
   return `
     CASE
       WHEN provinsi IN ('Aceh','Sumatera Utara','Sumatera Barat','Riau','Jambi','Sumatera Selatan','Bengkulu','Lampung','Kepulauan Bangka Belitung','Kepulauan Riau') THEN 'Sumatera'
-      WHEN provinsi IN ('Banten','DKI Jakarta','Jawa Barat','Jawa Tengah','DI Yogyakarta','Jawa Timur') THEN 'Jawa'
+      WHEN provinsi IN ('Banten','DKI Jakarta','Jawa Barat','Jawa Tengah','DI Yogyakarta','Jawa Timur','Bali','Nusa Tenggara Barat','Nusa Tenggara Timur') THEN 'Jawa'
       WHEN provinsi IN ('Kalimantan Barat','Kalimantan Tengah','Kalimantan Selatan','Kalimantan Timur','Kalimantan Utara') THEN 'Kalimantan'
       WHEN provinsi IN ('Sulawesi Utara','Sulawesi Tengah','Sulawesi Selatan','Sulawesi Tenggara','Gorontalo','Sulawesi Barat') THEN 'Sulawesi'
-      WHEN provinsi IN ('Bali','Nusa Tenggara Barat','Nusa Tenggara Timur') THEN 'Bali & Nusa Tenggara'
       WHEN provinsi IN ('Maluku','Maluku Utara') THEN 'Maluku'
       WHEN provinsi IN ('Papua','Papua Barat','Papua Barat Daya','Papua Pegunungan','Papua Selatan','Papua Tengah') THEN 'Papua'
       ELSE 'Lainnya'
