@@ -97,6 +97,7 @@ exports.getPublicUsers = async (req, res) => {
     const limitRaw = req.query?.limit;
     const limit = limitRaw != null ? parseInt(limitRaw, 10) : null;
 
+    const doAggregate = String(aggregate || "0") === "1";
     const conditions = ["role != 'admin'", "lat IS NOT NULL", "lng IS NOT NULL"];
     const params = [];
 
@@ -136,18 +137,19 @@ exports.getPublicUsers = async (req, res) => {
       );
       params.push(keyword, keyword, keyword, keyword, keyword, keyword);
     }
-    if (minLat != null && maxLat != null) {
+    // Untuk agregat (pulau/provinsi/kota/...) gunakan total sebenarnya,
+    // jadi jangan dibatasi viewport map.
+    if (!doAggregate && minLat != null && maxLat != null) {
       conditions.push("lat BETWEEN ? AND ?");
       params.push(Number(minLat), Number(maxLat));
     }
-    if (minLng != null && maxLng != null) {
+    if (!doAggregate && minLng != null && maxLng != null) {
       conditions.push("lng BETWEEN ? AND ?");
       params.push(Number(minLng), Number(maxLng));
     }
 
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     const limitClause = Number.isFinite(limit) && limit > 0 ? `LIMIT ?` : "";
-    const doAggregate = String(aggregate || "0") === "1";
     const lvl = String(level || "provinsi").toLowerCase();
     let sql = "";
 
