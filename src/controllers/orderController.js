@@ -1,4 +1,5 @@
 const db = require("../config/db");
+const { createNotification } = require("../utils/notifications");
 
 exports.createOrder = async (req, res) => {
   try {
@@ -86,6 +87,34 @@ exports.createOrder = async (req, res) => {
       }
 
       await conn.commit();
+
+      void (async () => {
+        try {
+          const [adminRows] = await db.query(
+            "SELECT id FROM users WHERE LOWER(TRIM(role)) = 'admin'",
+          );
+          const [buyerRows] = await db.query(
+            "SELECT nama, mitra_id FROM users WHERE id = ?",
+            [userId],
+          );
+          const b = buyerRows && buyerRows[0];
+          const buyerLabel = b?.nama
+            ? `${b.nama}${b.mitra_id ? ` (${b.mitra_id})` : ""}`
+            : `User #${userId}`;
+          const totalStr = Number(total).toLocaleString("id-ID");
+          const msg = `${buyerLabel} mengirim pesanan #${orderId}. Total Rp ${totalStr}. Buka Kelola Order untuk memproses.`;
+          for (const row of adminRows || []) {
+            createNotification(row.id, {
+              type: "new_order",
+              title: "Pesanan baru",
+              message: msg,
+            });
+          }
+        } catch (notifyErr) {
+          console.error("NOTIFY ADMINS NEW ORDER:", notifyErr);
+        }
+      })();
+
       res.status(201).json({
         message: "Pesanan berhasil dibuat",
         orderId,
