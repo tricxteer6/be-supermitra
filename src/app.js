@@ -3,6 +3,8 @@ const express = require("express");
 const path = require("path");
 const cors = require("cors");
 
+const app = express();
+
 const authRoutes = require("./routes/auth");
 const adminRoutes = require("./routes/admin");
 const courseRoutes = require("./routes/course");
@@ -10,7 +12,6 @@ const aksesRoutes = require("./routes/akses");
 const publicRoutes = require("./routes/public");
 const userRoutes = require("./routes/user");
 
-const app = express();
 
 /* =========================
    CORS CONFIG (FIXED)

@@ -56,7 +56,12 @@ exports.getOrders = async (req, res) => {
         u.nama AS user_nama,
         u.email AS user_email,
         u.kemitraan AS user_kemitraan,
-        u.mitra_id AS user_mitra_id
+        u.mitra_id AS user_mitra_id,
+        u.alamat AS user_alamat,
+        u.kelurahan AS user_kelurahan,
+        u.kecamatan AS user_kecamatan,
+        u.kota AS user_kota,
+        u.provinsi AS user_provinsi
       FROM orders o
       LEFT JOIN users u ON u.id = o.user_id
       ORDER BY o.id DESC`
@@ -102,6 +107,11 @@ exports.getOrders = async (req, res) => {
         email: o.user_email,
         kemitraan: o.user_kemitraan,
         mitra_id: o.user_mitra_id,
+        alamat: o.user_alamat,
+        kelurahan: o.user_kelurahan,
+        kecamatan: o.user_kecamatan,
+        kota: o.user_kota,
+        provinsi: o.user_provinsi,
       },
       items: itemsByOrder[o.id] || [],
     }));
