@@ -1,13 +1,46 @@
 const db = require("../config/db");
 const { deleteUploadedFile } = require("../utils/deleteUploadedFile");
 
-exports.getAllProducts = async (req, res) => {
+let hasCoverageAreaColumnCache = null;
+
+async function hasCoverageAreaColumn() {
+  if (hasCoverageAreaColumnCache != null) return hasCoverageAreaColumnCache;
   try {
     const [rows] = await db.query(
-      `SELECT id, name, description, price_free, price_vip, image, category, stock, kemitraan
+      `SELECT 1
+       FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = 'products'
+         AND COLUMN_NAME = 'coverage_area'
+       LIMIT 1`,
+    );
+    hasCoverageAreaColumnCache = Array.isArray(rows) && rows.length > 0;
+  } catch {
+    hasCoverageAreaColumnCache = false;
+  }
+  return hasCoverageAreaColumnCache;
+}
+
+function normalizeCoverageArea(value) {
+  const v = String(value || "all").trim().toLowerCase();
+  if (v === "jabodetabek_bandung") return "jabodetabek_bandung";
+  if (v === "non_jabodetabek_bandung") return "non_jabodetabek_bandung";
+  return "all";
+}
+
+exports.getAllProducts = async (req, res) => {
+  try {
+    const hasCoverage = await hasCoverageAreaColumn();
+    const selectCoverage = hasCoverage ? ", coverage_area" : "";
+    const [rows] = await db.query(
+      `SELECT id, name, description, price_free, price_vip, image, category, stock, kemitraan${selectCoverage}
        FROM products ORDER BY name`
     );
-    res.json(rows);
+    const normalized = rows.map((r) => ({
+      ...r,
+      coverage_area: normalizeCoverageArea(r.coverage_area),
+    }));
+    res.json(normalized);
   } catch (err) {
     console.error("ADMIN GET PRODUCTS ERROR:", err);
     res.status(500).json({ message: "Server error" });
@@ -16,15 +49,20 @@ exports.getAllProducts = async (req, res) => {
 
 exports.getProductById = async (req, res) => {
   try {
+    const hasCoverage = await hasCoverageAreaColumn();
+    const selectCoverage = hasCoverage ? ", coverage_area" : "";
     const [rows] = await db.query(
-      `SELECT id, name, description, price_free, price_vip, image, category, stock, kemitraan
+      `SELECT id, name, description, price_free, price_vip, image, category, stock, kemitraan${selectCoverage}
        FROM products WHERE id = ?`,
       [req.params.id]
     );
     if (!rows.length) {
       return res.status(404).json({ message: "Produk tidak ditemukan" });
     }
-    res.json(rows[0]);
+    res.json({
+      ...rows[0],
+      coverage_area: normalizeCoverageArea(rows[0].coverage_area),
+    });
   } catch (err) {
     console.error("ADMIN GET PRODUCT ERROR:", err);
     res.status(500).json({ message: "Server error" });
@@ -43,7 +81,7 @@ function normalizeKemitraan(kemitraan) {
 
 exports.createProduct = async (req, res) => {
   try {
-    const { name, description, price_free, price_vip, category, stock, kemitraan } = req.body;
+    const { name, description, price_free, price_vip, category, stock, kemitraan, coverage_area } = req.body;
     if (!name || (price_free == null && price_vip == null)) {
       return res.status(400).json({ message: "Nama dan minimal satu harga wajib diisi" });
     }
@@ -56,21 +94,43 @@ exports.createProduct = async (req, res) => {
       price_vip != null && price_vip !== "" ? price_vip : price_free,
     );
     const kemitraanVal = normalizeKemitraan(kemitraan);
-    await db.query(
-      `INSERT INTO products (name, description, price, price_free, price_vip, image, category, stock, kemitraan)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        name,
-        description || null,
-        isNaN(priceFreeNum) ? 0 : priceFreeNum,
-        isNaN(priceFreeNum) ? 0 : priceFreeNum,
-        isNaN(priceVipNum) ? (isNaN(priceFreeNum) ? 0 : priceFreeNum) : priceVipNum,
-        imagePath,
-        category || null,
-        isNaN(stockNum) ? 0 : stockNum,
-        kemitraanVal,
-      ]
-    );
+    const coverageVal = normalizeCoverageArea(coverage_area);
+    const hasCoverage = await hasCoverageAreaColumn();
+
+    if (hasCoverage) {
+      await db.query(
+        `INSERT INTO products (name, description, price, price_free, price_vip, image, category, stock, kemitraan, coverage_area)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          name,
+          description || null,
+          isNaN(priceFreeNum) ? 0 : priceFreeNum,
+          isNaN(priceFreeNum) ? 0 : priceFreeNum,
+          isNaN(priceVipNum) ? (isNaN(priceFreeNum) ? 0 : priceFreeNum) : priceVipNum,
+          imagePath,
+          category || null,
+          isNaN(stockNum) ? 0 : stockNum,
+          kemitraanVal,
+          coverageVal,
+        ]
+      );
+    } else {
+      await db.query(
+        `INSERT INTO products (name, description, price, price_free, price_vip, image, category, stock, kemitraan)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          name,
+          description || null,
+          isNaN(priceFreeNum) ? 0 : priceFreeNum,
+          isNaN(priceFreeNum) ? 0 : priceFreeNum,
+          isNaN(priceVipNum) ? (isNaN(priceFreeNum) ? 0 : priceFreeNum) : priceVipNum,
+          imagePath,
+          category || null,
+          isNaN(stockNum) ? 0 : stockNum,
+          kemitraanVal,
+        ]
+      );
+    }
     res.status(201).json({ message: "Produk berhasil ditambah" });
   } catch (err) {
     console.error("ADMIN CREATE PRODUCT ERROR:", err);
@@ -81,10 +141,12 @@ exports.createProduct = async (req, res) => {
 exports.updateProduct = async (req, res) => {
   try {
     const id = req.params.id;
-    const { name, description, price_free, price_vip, category, stock, kemitraan } = req.body;
+    const { name, description, price_free, price_vip, category, stock, kemitraan, coverage_area } = req.body;
+    const hasCoverage = await hasCoverageAreaColumn();
+    const selectCoverage = hasCoverage ? ", coverage_area" : "";
 
     const [rows] = await db.query(
-      "SELECT id, name, description, price, price_free, price_vip, image, category, stock, kemitraan FROM products WHERE id = ?",
+      `SELECT id, name, description, price, price_free, price_vip, image, category, stock, kemitraan${selectCoverage} FROM products WHERE id = ?`,
       [id]
     );
     if (!rows.length) {
@@ -108,24 +170,49 @@ exports.updateProduct = async (req, res) => {
     const categoryVal = category !== undefined ? category : current.category;
     const stockVal = stock !== undefined ? parseInt(stock, 10) : current.stock;
     const kemitraanVal = kemitraan !== undefined ? normalizeKemitraan(kemitraan) : current.kemitraan;
+    const coverageVal =
+      coverage_area !== undefined
+        ? normalizeCoverageArea(coverage_area)
+        : normalizeCoverageArea(current.coverage_area);
 
-    await db.query(
-      `UPDATE products 
-       SET name = ?, description = ?, price = ?, price_free = ?, price_vip = ?, image = ?, category = ?, stock = ?, kemitraan = ?
-       WHERE id = ?`,
-      [
-        nameVal,
-        descVal,
-        priceFreeVal,
-        priceFreeVal,
-        priceVipVal,
-        imagePath,
-        categoryVal,
-        stockVal,
-        kemitraanVal,
-        id,
-      ]
-    );
+    if (hasCoverage) {
+      await db.query(
+        `UPDATE products 
+         SET name = ?, description = ?, price = ?, price_free = ?, price_vip = ?, image = ?, category = ?, stock = ?, kemitraan = ?, coverage_area = ?
+         WHERE id = ?`,
+        [
+          nameVal,
+          descVal,
+          priceFreeVal,
+          priceFreeVal,
+          priceVipVal,
+          imagePath,
+          categoryVal,
+          stockVal,
+          kemitraanVal,
+          coverageVal,
+          id,
+        ]
+      );
+    } else {
+      await db.query(
+        `UPDATE products 
+         SET name = ?, description = ?, price = ?, price_free = ?, price_vip = ?, image = ?, category = ?, stock = ?, kemitraan = ?
+         WHERE id = ?`,
+        [
+          nameVal,
+          descVal,
+          priceFreeVal,
+          priceFreeVal,
+          priceVipVal,
+          imagePath,
+          categoryVal,
+          stockVal,
+          kemitraanVal,
+          id,
+        ]
+      );
+    }
     res.json({ message: "Produk berhasil diupdate" });
   } catch (err) {
     console.error("ADMIN UPDATE PRODUCT ERROR:", err);

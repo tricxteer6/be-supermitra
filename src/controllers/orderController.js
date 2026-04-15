@@ -1,6 +1,77 @@
 const db = require("../config/db");
 const { createNotification } = require("../utils/notifications");
 
+const JABODETABEK_BANDUNG_CITY_KEYS = new Set([
+  "jakartapusat",
+  "jakartautara",
+  "jakartabarat",
+  "jakartatimur",
+  "jakartaselatan",
+  "bogor",
+  "kotabogor",
+  "kabupatenbogor",
+  "depok",
+  "bekasi",
+  "kotabekasi",
+  "kabupatenbekasi",
+  "tangerang",
+  "kotatangerang",
+  "kabupatentangerang",
+  "tangerangselatan",
+  "bandung",
+  "kotabandung",
+  "kabupatenbandung",
+  "bandungbarat",
+  "kabupatenbandungbarat",
+  "cimahi",
+]);
+
+function normalizeKey(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function normalizeCoverageArea(value) {
+  const v = String(value || "all").trim().toLowerCase();
+  if (v === "jabodetabek_bandung") return "jabodetabek_bandung";
+  if (v === "non_jabodetabek_bandung") return "non_jabodetabek_bandung";
+  return "all";
+}
+
+function isUserInJabodetabekBandung(userKota) {
+  const key = normalizeKey(userKota);
+  if (!key) return null;
+  return JABODETABEK_BANDUNG_CITY_KEYS.has(key);
+}
+
+function productAllowedForCoverage(coverageArea, isInJaboBandung) {
+  const scope = normalizeCoverageArea(coverageArea);
+  if (scope === "all") return true;
+  if (isInJaboBandung == null) return false;
+  if (scope === "jabodetabek_bandung") return isInJaboBandung;
+  return !isInJaboBandung;
+}
+
+let hasCoverageAreaColumnCache = null;
+async function hasCoverageAreaColumn() {
+  if (hasCoverageAreaColumnCache != null) return hasCoverageAreaColumnCache;
+  try {
+    const [rows] = await db.query(
+      `SELECT 1
+       FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = 'products'
+         AND COLUMN_NAME = 'coverage_area'
+       LIMIT 1`,
+    );
+    hasCoverageAreaColumnCache = Array.isArray(rows) && rows.length > 0;
+  } catch {
+    hasCoverageAreaColumnCache = false;
+  }
+  return hasCoverageAreaColumnCache;
+}
+
 exports.createOrder = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -18,6 +89,13 @@ exports.createOrder = async (req, res) => {
       const orderItems = [];
 
       const role = req.user?.role || "user";
+      const hasCoverage = await hasCoverageAreaColumn();
+      const [userRows] = await conn.query(
+        "SELECT kota FROM users WHERE id = ? LIMIT 1",
+        [userId],
+      );
+      const userKota = userRows?.[0]?.kota || "";
+      const isInJaboBandung = isUserInJabodetabekBandung(userKota);
 
       for (const item of items) {
         const productId = item.productId || item.product_id;
@@ -25,7 +103,7 @@ exports.createOrder = async (req, res) => {
         if (!productId) continue;
 
         const [products] = await conn.query(
-          "SELECT id, price, price_free, price_vip, stock, kemitraan FROM products WHERE id = ?",
+          `SELECT id, price, price_free, price_vip, stock, kemitraan${hasCoverage ? ", coverage_area" : ""} FROM products WHERE id = ?`,
           [productId]
         );
         if (!products.length) {
@@ -43,6 +121,13 @@ exports.createOrder = async (req, res) => {
             await conn.rollback();
             return res.status(403).json({ message: "Produk tidak tersedia untuk kemitraan Anda" });
           }
+        }
+        if (!productAllowedForCoverage(product.coverage_area, isInJaboBandung)) {
+          await conn.rollback();
+          return res.status(403).json({
+            message:
+              "Produk tidak tersedia untuk area user ini (Jabodetabek-Bandung / Non Jabodetabek-Bandung).",
+          });
         }
         if (product.stock < quantity) {
           await conn.rollback();
